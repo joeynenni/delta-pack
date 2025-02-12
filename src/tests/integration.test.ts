@@ -1,5 +1,6 @@
 import { createObject, createArray } from '../composite'
 import { Int, String, Float, Boolean } from '../primitives'
+import { optional } from '../types'
 
 describe('Integration Tests', () => {
 	// Define a complex game state schema
@@ -170,5 +171,154 @@ describe('Advanced Integration Tests', () => {
 
 		const delta = LargeStateSchema.encodeDiff(largeState, updatedState)
 		expect(LargeStateSchema.decode(delta, largeState)).toEqual(updatedState)
+	})
+})
+
+describe('Optional Properties', () => {
+	const UserSchema = createObject({
+		id: Int,
+		name: String,
+		email: optional(String),
+		metadata: optional(createObject({
+			lastLogin: Int,
+			preferences: createObject({
+				theme: String,
+				notifications: Boolean
+			})
+		}))
+	})
+
+	it('should handle optional properties', () => {
+		const user1 = {
+			id: 1,
+			name: 'Alice',
+			// email omitted
+			metadata: {
+				lastLogin: 123456789,
+				preferences: {
+					theme: 'dark',
+					notifications: true
+				}
+			}
+		}
+
+		const user2 = {
+			id: 2,
+			name: 'Bob',
+			email: 'bob@example.com',
+			// metadata omitted
+		}
+
+		// Test encoding/decoding
+		const binary1 = UserSchema.encode(user1 as any)
+		const binary2 = UserSchema.encode(user2 as any)
+		
+		expect(UserSchema.decode(binary1)).toEqual(user1)
+		expect(UserSchema.decode(binary2)).toEqual(user2)
+
+		// Test validation
+		expect(UserSchema.validate(user1)).toHaveLength(0)
+		expect(UserSchema.validate(user2)).toHaveLength(0)
+
+		// Test delta updates
+		const updatedUser1 = {
+			...user1,
+			email: 'alice@example.com'
+		}
+		const delta = UserSchema.encodeDiff(user1 as any, updatedUser1 as any)
+		expect(UserSchema.decode(delta, user1 as any)).toEqual(updatedUser1)
+	})
+
+	it('should reject invalid optional values', () => {
+		const invalidUser = {
+			id: 1,
+			name: 'Alice',
+			email: 123, // Wrong type for optional field
+			metadata: {
+				lastLogin: '123456789', // Wrong type in nested optional object
+				preferences: {
+					theme: 'dark',
+					notifications: true
+				}
+			}
+		}
+
+		expect(UserSchema.validate(invalidUser)).toHaveLength(2)
+	})
+})
+
+describe('Optional Properties Validation', () => {
+	// Test simple optional primitive
+	it('should validate simple optional primitive', () => {
+		const SimpleSchema = createObject({
+			required: Int,
+			optional: optional(String)
+		})
+		
+		// Valid cases
+		expect(SimpleSchema.validate({ required: 1 })).toHaveLength(0)
+		expect(SimpleSchema.validate({ required: 1, optional: 'test' })).toHaveLength(0)
+		
+		// Invalid cases
+		const errors1 = SimpleSchema.validate({ required: 1, optional: 123 })
+		expect(errors1).toHaveLength(1)
+		expect(errors1[0]).toBe('Invalid string: 123')
+	})
+
+	// Test nested optional object
+	it('should validate nested optional object', () => {
+		const NestedSchema = createObject({
+			required: Int,
+			metadata: optional(createObject({
+				count: Int,
+				name: String
+			}))
+		})
+		
+		// Valid cases
+		expect(NestedSchema.validate({ required: 1 })).toHaveLength(0)
+		expect(NestedSchema.validate({ 
+			required: 1, 
+			metadata: { count: 1, name: 'test' } 
+		})).toHaveLength(0)
+		
+		// Invalid cases
+		const errors1 = NestedSchema.validate({ 
+			required: 1, 
+			metadata: { count: 'invalid', name: 'test' } 
+		})
+		expect(errors1).toHaveLength(1)
+		expect(errors1[0]).toBe('Invalid int: invalid')
+
+		const errors2 = NestedSchema.validate({ 
+			required: 1, 
+			metadata: { count: 1, name: 123 } 
+		})
+		expect(errors2).toHaveLength(1)
+		expect(errors2[0]).toBe('Invalid string: 123')
+	})
+
+	// Test multiple validation errors
+	it('should collect all validation errors', () => {
+		const ComplexSchema = createObject({
+			id: Int,
+			metadata: optional(createObject({
+				count: Int,
+				name: String
+			}))
+		})
+		
+		const errors = ComplexSchema.validate({ 
+			id: 'invalid',
+			metadata: { 
+				count: 'invalid',
+				name: 123 
+			} 
+		})
+		
+		expect(errors).toHaveLength(3)
+		expect(errors).toContain('Invalid int: invalid')
+		expect(errors).toContain('Invalid int: invalid')
+		expect(errors).toContain('Invalid string: 123')
 	})
 })

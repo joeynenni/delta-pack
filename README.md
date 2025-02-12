@@ -96,6 +96,57 @@ const decodedGameState = gameStateSchema.decode(fullBinary)
 console.log(decodedGameState)
 ```
 
+## Optional Properties
+
+You can define optional properties in your schemas using the `optional()` wrapper:
+
+```typescript
+import { Int, String, createObject, optional } from 'delta-pack'
+
+// Define a schema with optional properties
+const userSchema = createObject({
+  id: Int,
+  name: String,
+  email: optional(String), // Optional string
+  metadata: optional(createObject({ // Optional nested object
+    lastLogin: Int,
+    preferences: createObject({
+      theme: String,
+      notifications: Boolean
+    })
+  }))
+})
+
+// These are all valid:
+const user1 = {
+  id: 1,
+  name: 'Alice',
+  // email and metadata are optional
+}
+
+const user2 = {
+  id: 2,
+  name: 'Bob',
+  email: 'bob@example.com',
+  // metadata is optional
+}
+
+const user3 = {
+  id: 3,
+  name: 'Charlie',
+  email: 'charlie@example.com',
+  metadata: {
+    lastLogin: 123456789,
+    preferences: {
+      theme: 'dark',
+      notifications: true
+    }
+  }
+}
+```
+
+Optional properties can be omitted entirely from the object. When encoding, optional fields that are undefined will be efficiently encoded. The delta compression system will also properly handle changes to optional fields.
+
 ## Delta Compression
 
 When only parts of your state change, you can generate a delta update that transmits only the differences between states. The API now uses a single `encodeDiff(previousState, nextState)` method to produce a binary delta. At decoding time, pass the previous state to `decode()` so the library can merge the delta with the previous state.

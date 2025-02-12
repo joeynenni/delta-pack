@@ -12,13 +12,13 @@ function validateArrayItems<T>(arr: T[], itemSchema: Schema<T>): string[] {
 }
 
 function validateObjectProperties<T extends object>(obj: T, properties: { [K in keyof T]: Schema<T[K]> }): string[] {
+	const errors: string[] = []
 	for (const [key, schema] of Object.entries(properties) as [keyof T, Schema<T[keyof T]>][]) {
-		const errors = schema.validate(obj[key])
-		if (errors.length > 0) {
-			return errors
+		if (key in obj) {
+			errors.push(...schema.validate(obj[key]))
 		}
 	}
-	return []
+	return errors
 }
 
 export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
