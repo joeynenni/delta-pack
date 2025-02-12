@@ -2,6 +2,10 @@ import { Writer, Reader } from 'bin-serde'
 import { Schema } from './types'
 import { validateObjectProperties } from './utils'
 
+function isObject(value: unknown): value is object {
+	return typeof value === 'object' && value !== null
+}
+
 function validateArrayItems<T>(arr: T[], itemSchema: Schema<T>): string[] {
 	const errors: string[] = []
 	for (let i = 0; i < arr.length; i++) {
@@ -107,9 +111,11 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 				return writer.toBuffer()
 			}
 
-			const filteredNext = next.filter(
-				(item) => item !== undefined && (!isObject(item) || Object.keys(item).length > 0)
-			)
+			const filteredNext = next.filter((item) => {
+				if (item === undefined) return false
+				if (!isObject(item)) return true
+				return Object.keys(item).length > 0
+			})
 
 			writer.writeUInt8(0x02)
 			writer.writeUVarint(Math.max(prev.length, filteredNext.length))
@@ -122,7 +128,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 					writer.writeUInt8(0)
 				} else {
 					writer.writeUInt8(1)
-					const itemDiff = itemSchema.encodeDiff(prevItem, nextItem ?? undefined)
+					const itemDiff = itemSchema.encodeDiff(prevItem, nextItem === undefined ? undefined : nextItem)
 					writer.writeUVarint(itemDiff.length)
 					writer.writeBuffer(itemDiff)
 				}
@@ -131,10 +137,6 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 		}
 	}
 	return schema
-}
-
-function isObject(value: unknown): value is object {
-	return typeof value === 'object' && value !== null
 }
 
 export function createObject<T extends object>(properties: {

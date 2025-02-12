@@ -12,22 +12,31 @@ export const createPrimitive = <T>(
 	encode: (value): Uint8Array => {
 		const writer = new Writer()
 		writer.writeUInt8(0x00)
-		encodeFn(writer, value as T)
+		if (value === undefined) {
+			writer.writeUInt8(0x01)
+		} else {
+			writer.writeUInt8(0x00)
+			encodeFn(writer, value as T)
+		}
 		return writer.toBuffer()
 	},
 	decode: (binary: Uint8Array | ArrayBuffer, prevState?): T => {
 		const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
 		const reader = new Reader(data)
 		const header = reader.readUInt8()
-		if (header === 0x00) {
+		const isUndefined = reader.readUInt8() === 0x01
+
+		if (isUndefined) {
+			return undefined as T
+		}
+
+		if (header === 0x00 || header === 0x02) {
 			return decodeFn(reader)
 		} else if (header === 0x01) {
 			if (prevState === undefined) {
 				throw new Error('No previous state provided for delta update')
 			}
 			return prevState
-		} else if (header === 0x02) {
-			return decodeFn(reader)
 		} else {
 			throw new Error('Invalid header')
 		}
@@ -36,8 +45,12 @@ export const createPrimitive = <T>(
 		const writer = new Writer()
 		if (prev === next) {
 			writer.writeUInt8(0x01)
+		} else if (next === undefined) {
+			writer.writeUInt8(0x02)
+			writer.writeUInt8(0x01)
 		} else {
 			writer.writeUInt8(0x02)
+			writer.writeUInt8(0x00)
 			encodeFn(writer, next as T)
 		}
 		return writer.toBuffer()
