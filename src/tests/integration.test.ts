@@ -329,9 +329,9 @@ describe('Optional Properties Validation', () => {
 
 describe('Arrays with Optional Properties', () => {
 	interface Creature {
-		id: number;
-		name: string;
-		equippedItemType: string | undefined;  // Required property that can be undefined
+		id: number
+		name: string
+		equippedItemType: string | undefined // Required property that can be undefined
 	}
 
 	const CreatureSchema = createObject<Creature>({
@@ -339,7 +339,7 @@ describe('Arrays with Optional Properties', () => {
 		name: String,
 		equippedItemType: optional(String)
 	})
-	
+
 	const GameStateSchema = createObject({
 		creatures: createArray(CreatureSchema)
 	})

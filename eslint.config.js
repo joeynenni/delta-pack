@@ -28,6 +28,7 @@ export default tseslint.config(
 			'@typescript-eslint/no-unsafe-assignment': 0,
 			'@typescript-eslint/no-unsafe-call': 2,
 			'@typescript-eslint/no-unsafe-member-access': 2,
+			'@typescript-eslint/no-unsafe-return': 0,
 			'@typescript-eslint/no-unused-vars': 2,
 			'@typescript-eslint/no-var-requires': 0,
 			'@typescript-eslint/restrict-template-expressions': 0
@@ -37,6 +38,6 @@ export default tseslint.config(
 		}
 	},
 	{
-		ignores: ['dist', 'eslint.config.js', 'jest.config.js']
+		ignores: ['dist', 'node_modules', 'commitlint.config.js', 'eslint.config.js', 'jest.config.js']
 	}
 )

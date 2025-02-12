@@ -21,7 +21,7 @@ export class Tracker {
 export interface Schema<T> {
 	validate(value: T | undefined): string[]
 	encode(value: T | undefined): Uint8Array
-	decode(binary: Uint8Array | ArrayBuffer, prevState?: T | undefined): T | undefined
+	decode(binary: Uint8Array | ArrayBuffer, prevState?: T): T | undefined
 	encodeDiff(prev: T | undefined, next: T | undefined): Uint8Array
 }
 
@@ -58,12 +58,12 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 			}
 			return writer.toBuffer()
 		},
-		decode: (binary: Uint8Array | ArrayBuffer, prevState?: T | undefined): T | undefined => {
+		decode: (binary: Uint8Array | ArrayBuffer, prevState?: T): T | undefined => {
 			const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
 			const reader = new BinSerdeReader(data)
 			const header = reader.readUInt8()
 			const isUndefined = reader.readUInt8() === 0x01
-			
+
 			if (isUndefined) {
 				return undefined
 			}
@@ -79,7 +79,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 		},
 		encodeDiff: (prev: T | undefined, next: T | undefined): Uint8Array => {
 			const writer = new BinSerdeWriter()
-			
+
 			if (prev === next) {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
@@ -87,7 +87,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 
 			writer.writeUInt8(0x02)
 			writer.writeUInt8(next === undefined ? 0x01 : 0x00)
-			
+
 			if (next !== undefined) {
 				if (prev !== undefined) {
 					const diffBinary = schema.encodeDiff(prev, next)
@@ -105,13 +105,4 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 
 export type OptionalProperties<T> = {
 	[K in keyof T]: Schema<T[K] | undefined>
-}
-
-export function createObject<T extends object>(properties: {
-	[K in keyof T]: Schema<T[K]> | Schema<T[K] | undefined>
-}): Schema<T> {
-	// Implementation remains the same, but types are now correct
-	return {
-		// ... existing implementation
-	} as Schema<T>
 }

@@ -25,7 +25,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 		},
 		encode: (arr): Uint8Array => {
 			if (arr === undefined) {
-				throw new Error("Cannot encode an undefined array")
+				throw new Error('Cannot encode an undefined array')
 			}
 			const writer = new Writer()
 			writer.writeUInt8(0x00)
@@ -40,7 +40,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 		decode: (binary, prevState?): T[] => {
 			const reader = new Reader(binary as ArrayBufferView)
 			const header = reader.readUInt8()
-			
+
 			if (header === 0x00) {
 				const length = reader.readUVarint()
 				const result: T[] = []
@@ -59,10 +59,10 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 				if (reader.remaining() === 0) {
 					return []
 				}
-				
+
 				const length = reader.readUVarint()
 				const result: T[] = []
-				
+
 				for (let i = 0; i < length; i++) {
 					const changed = reader.readUInt8() === 1
 					if (changed) {
@@ -79,24 +79,24 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 						}
 					}
 				}
-				return result.filter(item => item !== undefined && (!isObject(item) || Object.keys(item).length > 0))
+				return result.filter((item) => item !== undefined && (!isObject(item) || Object.keys(item).length > 0))
 			}
 			throw new Error('Invalid header')
 		},
 		encodeDiff: (prev: T[] | undefined, next: T[] | undefined): Uint8Array => {
 			const writer = new Writer()
-			
+
 			if (prev === next) {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
-			
+
 			if (next === undefined) {
 				writer.writeUInt8(0x02)
 				writer.writeUVarint(0)
 				return writer.toBuffer()
 			}
-			
+
 			if (prev === undefined) {
 				return schema.encode(next)
 			}
@@ -106,18 +106,18 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 				writer.writeUVarint(0)
 				return writer.toBuffer()
 			}
-			
-			const filteredNext = next.filter(item => 
-				item !== undefined && (!isObject(item) || Object.keys(item).length > 0)
+
+			const filteredNext = next.filter(
+				(item) => item !== undefined && (!isObject(item) || Object.keys(item).length > 0)
 			)
-			
+
 			writer.writeUInt8(0x02)
 			writer.writeUVarint(Math.max(prev.length, filteredNext.length))
-			
+
 			for (let i = 0; i < Math.max(prev.length, filteredNext.length); i++) {
 				const prevItem = i < prev.length ? prev[i] : undefined
 				const nextItem = i < filteredNext.length ? filteredNext[i] : undefined
-				
+
 				if (prevItem === nextItem) {
 					writer.writeUInt8(0)
 				} else {
@@ -149,7 +149,7 @@ export function createObject<T extends object>(properties: {
 		},
 		encode: (obj): Uint8Array => {
 			if (obj === undefined) {
-				throw new Error("Cannot encode an undefined object")
+				throw new Error('Cannot encode an undefined object')
 			}
 			const writer = new Writer()
 			writer.writeUInt8(0x00)
@@ -182,8 +182,8 @@ export function createObject<T extends object>(properties: {
 				if (reader.remaining() === 0) {
 					return undefined as any
 				}
-				
-				const result = prevState ? { ...prevState } : {} as T
+
+				const result = prevState ? { ...prevState } : ({} as T)
 				for (const key in properties) {
 					const changed = reader.readUInt8() === 1
 					if (changed) {
@@ -198,26 +198,26 @@ export function createObject<T extends object>(properties: {
 		},
 		encodeDiff: (prev, next): Uint8Array => {
 			const writer = new Writer()
-			
+
 			if (prev === next) {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
-			
+
 			if (next === undefined) {
 				writer.writeUInt8(0x02)
 				return writer.toBuffer()
 			}
-			
+
 			if (prev === undefined) {
 				return schema.encode(next)
 			}
-			
+
 			writer.writeUInt8(0x02)
 			for (const key in properties) {
 				const prevValue = prev[key]
 				const nextValue = next[key]
-				
+
 				if (prevValue === nextValue) {
 					writer.writeUInt8(0)
 				} else {
