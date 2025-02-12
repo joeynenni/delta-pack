@@ -42,8 +42,6 @@ export interface Reader {
 	readBytes(length: number): Uint8Array
 }
 
-export type Optional<T> = T | undefined
-
 export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 	return {
 		validate: (value: unknown): string[] => {
@@ -61,7 +59,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 			}
 			return writer.toBuffer()
 		},
-		decode: (binary: Uint8Array, prevState?: T | undefined): T | undefined => {
+		decode: (binary: Uint8Array, prevState?: T): T | undefined => {
 			const reader = new BinSerdeReader(binary)
 			const header = reader.readUInt8()
 			if (header === 0x01) return undefined
@@ -77,10 +75,10 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
-			
+
 			const writer = new BinSerdeWriter()
 			writer.writeUInt8(0x02)
-			
+
 			if (next === undefined) {
 				writer.writeUInt8(0x01)
 			} else if (prev === undefined) {
@@ -90,7 +88,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 				const diffBinary = schema.encodeDiff(prev, next)
 				writer.writeBuffer(diffBinary)
 			}
-			
+
 			return writer.toBuffer()
 		}
 	}

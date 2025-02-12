@@ -1,21 +1,15 @@
 import { Writer, Reader } from 'bin-serde'
 import { Schema } from './types'
+import { validateObjectProperties } from './utils'
 
 function validateArrayItems<T>(arr: T[], itemSchema: Schema<T>): string[] {
-	for (let i = 0; i < arr.length; i++) {
-		const errors = itemSchema.validate(arr[i])
-		if (errors.length > 0) {
-			return errors
-		}
-	}
-	return []
-}
-
-function validateObjectProperties<T extends object>(obj: T, properties: { [K in keyof T]: Schema<T[K]> }): string[] {
 	const errors: string[] = []
-	for (const [key, schema] of Object.entries(properties) as [keyof T, Schema<T[keyof T]>][]) {
-		if (key in obj) {
-			errors.push(...schema.validate(obj[key]))
+	for (let i = 0; i < arr.length; i++) {
+		const itemErrors = itemSchema.validate(arr[i])
+		if (itemErrors.length > 0) {
+			itemErrors.forEach((err) => {
+				errors.push(`Item at index ${i}: ${err}`)
+			})
 		}
 	}
 	return errors

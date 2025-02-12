@@ -10,7 +10,9 @@ export function validateArrayItems<T>(arr: unknown[], itemSchema: Schema<T>): st
 	arr.forEach((item, index) => {
 		const itemErrors = itemSchema.validate(item)
 		if (itemErrors.length > 0) {
-			errors.push(`Item at index ${index}:`, ...itemErrors.map((err) => `  ${err}`))
+			itemErrors.forEach((err) => {
+				errors.push(`Item at index ${index}: ${err.trim()}`)
+			})
 		}
 	})
 	return errors
@@ -24,7 +26,13 @@ export function validateObjectProperties<T extends object>(
 	for (const key in properties) {
 		const propertyErrors = properties[key].validate(obj[key])
 		if (propertyErrors.length > 0) {
-			errors.push(`Property "${String(key)}":`, ...propertyErrors.map((err) => `  ${err}`))
+			propertyErrors.forEach((err) => {
+				if (err.includes('Property "')) {
+					errors.push(`Property "${String(key)}": ${err}`)
+				} else {
+					errors.push(`Property "${String(key)}": ${err}`)
+				}
+			})
 		}
 	}
 	return errors

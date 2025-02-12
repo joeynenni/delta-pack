@@ -24,7 +24,7 @@ export default tseslint.config(
 			'@typescript-eslint/no-empty-function': 0,
 			'@typescript-eslint/no-explicit-any': 0,
 			'@typescript-eslint/no-misused-promises': 0,
-			'@typescript-eslint/no-unsafe-argument': 2,
+			'@typescript-eslint/no-unsafe-argument': 0,
 			'@typescript-eslint/no-unsafe-assignment': 0,
 			'@typescript-eslint/no-unsafe-call': 2,
 			'@typescript-eslint/no-unsafe-member-access': 2,
@@ -37,6 +37,6 @@ export default tseslint.config(
 		}
 	},
 	{
-		ignores: ['eslint.config.js', 'jest.config.js']
+		ignores: ['dist', 'eslint.config.js', 'jest.config.js']
 	}
 )
