@@ -171,4 +171,65 @@ describe('Delta Updates', () => {
       expect(GameSchema.decode(delta, prevState)).toEqual(newState)
     })
   })
+
+  describe('Array Entity Validation', () => {
+    const EntitySchema = createObject({
+      id: String,
+      name: String
+    })
+
+    const GameStateSchema = createObject({
+      players: createArray(EntitySchema),
+      creatures: createArray(EntitySchema)
+    })
+
+    it('should not allow empty objects in arrays', () => {
+      const state1 = {
+        players: [
+          { id: 'player1', name: 'Alice' }
+        ],
+        creatures: []
+      }
+
+      const state2 = {
+        players: [
+          { id: 'player1', name: 'Alice' },
+          {} // This should be handled
+        ],
+        creatures: []
+      }
+
+      const delta = GameStateSchema.encodeDiff(state1, state2 as any)
+      const decoded = GameStateSchema.decode(delta, state1)
+      
+      // Should filter out empty objects
+      expect(decoded?.players).toHaveLength(1)
+      expect(decoded?.players[0]).toEqual({ id: 'player1', name: 'Alice' })
+    })
+
+    it('should handle undefined array items correctly', () => {
+      const state1 = {
+        players: [
+          { id: 'player1', name: 'Alice' },
+          { id: 'player2', name: 'Bob' }
+        ],
+        creatures: []
+      }
+
+      const state2 = {
+        players: [
+          undefined,
+          { id: 'player2', name: 'Bob' }
+        ],
+        creatures: []
+      }
+
+      const delta = GameStateSchema.encodeDiff(state1, state2 as any)
+      const decoded = GameStateSchema.decode(delta, state1)
+      
+      // Should filter out undefined and empty objects
+      expect(decoded?.players).toHaveLength(1)
+      expect(decoded?.players[0]).toEqual({ id: 'player2', name: 'Bob' })
+    })
+  })
 }) 

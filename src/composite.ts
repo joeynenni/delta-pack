@@ -16,7 +16,7 @@ function validateArrayItems<T>(arr: T[], itemSchema: Schema<T>): string[] {
 }
 
 export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
-	return {
+	const schema: Schema<T[]> = {
 		validate: (arr: unknown): string[] => {
 			if (!Array.isArray(arr)) {
 				return [`Invalid array: ${String(arr)}`]
@@ -31,7 +31,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 			writer.writeUInt8(0x00)
 			writer.writeUVarint(arr.length)
 			arr.forEach((item) => {
-				const itemBinary = itemSchema.encode(item)
+				const itemBinary = itemSchema.encode(item ?? undefined)
 				writer.writeUVarint(itemBinary.length)
 				writer.writeBuffer(itemBinary)
 			})
@@ -43,38 +43,47 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 			
 			if (header === 0x00) {
 				const length = reader.readUVarint()
-				return Array.from({ length }, () => {
+				const result: T[] = []
+				for (let i = 0; i < length; i++) {
 					const itemLength = reader.readUVarint()
 					const itemBinary = reader.readBuffer(itemLength)
-					return itemSchema.decode(itemBinary)!
-				})
-			} else if (header === 0x01) {
-				if (prevState === undefined) {
-					throw new Error('No previous state provided for delta update')
+					const decoded = itemSchema.decode(itemBinary)
+					if (decoded !== undefined) {
+						result.push(decoded)
+					}
 				}
-				return prevState
+				return result
+			} else if (header === 0x01) {
+				return prevState || []
 			} else if (header === 0x02) {
-				if (prevState === undefined) {
+				if (reader.remaining() === 0) {
 					return []
 				}
 				
 				const length = reader.readUVarint()
-				const result = new Array(length)
+				const result: T[] = []
+				
 				for (let i = 0; i < length; i++) {
 					const changed = reader.readUInt8() === 1
 					if (changed) {
 						const itemLength = reader.readUVarint()
 						const itemBinary = reader.readBuffer(itemLength)
-						result[i] = itemSchema.decode(itemBinary, i < prevState.length ? prevState[i] : undefined)
-					} else {
-						result[i] = i < prevState.length ? prevState[i] : undefined!
+						const decoded = itemSchema.decode(itemBinary, prevState?.[i])
+						if (decoded !== undefined) {
+							result.push(decoded)
+						}
+					} else if (i < (prevState?.length ?? 0)) {
+						const prevItem = prevState?.[i]
+						if (prevItem !== undefined) {
+							result.push(prevItem)
+						}
 					}
 				}
-				return result
+				return result.filter(item => item !== undefined && (!isObject(item) || Object.keys(item).length > 0))
 			}
 			throw new Error('Invalid header')
 		},
-		encodeDiff: (prev, next): Uint8Array => {
+		encodeDiff: (prev: T[] | undefined, next: T[] | undefined): Uint8Array => {
 			const writer = new Writer()
 			
 			if (prev === next) {
@@ -89,32 +98,43 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 			}
 			
 			if (prev === undefined) {
-				writer.writeUInt8(0x00)
-				writer.writeUVarint(next.length)
-				next.forEach(item => {
-					const itemBinary = itemSchema.encode(item)
-					writer.writeUVarint(itemBinary.length)
-					writer.writeBuffer(itemBinary)
-				})
+				return schema.encode(next)
+			}
+
+			if (next.length === 0) {
+				writer.writeUInt8(0x02)
+				writer.writeUVarint(0)
 				return writer.toBuffer()
 			}
 			
+			const filteredNext = next.filter(item => 
+				item !== undefined && (!isObject(item) || Object.keys(item).length > 0)
+			)
+			
 			writer.writeUInt8(0x02)
-			writer.writeUVarint(next.length)
-			next.forEach((item, i) => {
+			writer.writeUVarint(Math.max(prev.length, filteredNext.length))
+			
+			for (let i = 0; i < Math.max(prev.length, filteredNext.length); i++) {
 				const prevItem = i < prev.length ? prev[i] : undefined
-				if (prevItem === item) {
+				const nextItem = i < filteredNext.length ? filteredNext[i] : undefined
+				
+				if (prevItem === nextItem) {
 					writer.writeUInt8(0)
 				} else {
 					writer.writeUInt8(1)
-					const itemDiff = itemSchema.encodeDiff(prevItem, item)
+					const itemDiff = itemSchema.encodeDiff(prevItem, nextItem ?? undefined)
 					writer.writeUVarint(itemDiff.length)
 					writer.writeBuffer(itemDiff)
 				}
-			})
+			}
 			return writer.toBuffer()
 		}
 	}
+	return schema
+}
+
+function isObject(value: unknown): value is object {
+	return typeof value === 'object' && value !== null
 }
 
 export function createObject<T extends object>(properties: {
