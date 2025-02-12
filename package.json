@@ -1,21 +1,39 @@
 {
   "name": "delta-pack",
-  "version": "0.0.5",
-  "license": "MIT",
+  "version": "0.0.6",
+  "description": "Efficient binary serialization with delta compression",
   "type": "module",
-  "main": "dist/generator.js",
-  "types": "dist/generator.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc && cp template.hbs dist",
-    "typecheck": "tsc --noEmit"
+    "benchmark": "ts-node src/benchmarks/index.ts",
+    "build": "tsc",
+    "lint": "eslint .",
+		"lint:fix": "eslint --fix .",
+    "prepublishOnly": "npm run build",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
-    "bin-serde": "^1.2.2",
-    "handlebars": "^4.7.8"
+    "bin-serde": "^1.2.2"
   },
   "devDependencies": {
-    "@types/node": "^20.10.5",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "@commitlint/cli": "^12.1.4",
+    "@commitlint/config-conventional": "^12.1.4",
+    "@eslint/js": "^9.18.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.13.0",
+    "eslint": "^9.18.0",
+    "eslint-plugin-prettier": "^5.2.2",
+    "husky": "^4.3.8",
+    "jest": "^29.5.0",
+    "leasot": "^11.6.0",
+		"prettier": "^3.4.2",
+		"tsx": "^4.19.2",
+    "ts-jest": "^29.1.0",
+		"typescript": "^5.7.3",
+		"typescript-eslint": "^8.20.0"
   }
 }
