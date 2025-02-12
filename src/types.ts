@@ -66,8 +66,11 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 			if (isUndefined) {
 				return undefined
 			}
-			
-			const fieldBinary = reader.readBuffer(binary.length - 2)
+
+			const remainingLength = binary.length - 2
+			if (remainingLength <= 0) return undefined
+
+			const fieldBinary = reader.readBuffer(remainingLength)
 			if (header === 0x02 && prevState !== undefined) {
 				return schema.decode(fieldBinary, prevState)
 			}
@@ -96,5 +99,5 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 
 			return writer.toBuffer()
 		}
-	}
+	} as Schema<T | undefined> & { __optional: true }
 }
