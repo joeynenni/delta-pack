@@ -2,21 +2,17 @@ import { Writer, Reader } from 'bin-serde'
 import { Schema } from './types'
 import { validateObjectProperties } from './utils'
 
-function isObject(value: unknown): value is object {
-	return typeof value === 'object' && value !== null
-}
+function isEqual(a: any, b: any): boolean {
+	if (a === b) return true
+	if (a === undefined || b === undefined) return false
+	if (a === null || b === null) return false
+	if (typeof a !== 'object') return a === b
 
-function validateArrayItems<T>(arr: T[], itemSchema: Schema<T>): string[] {
-	const errors: string[] = []
-	for (let i = 0; i < arr.length; i++) {
-		const itemErrors = itemSchema.validate(arr[i])
-		if (itemErrors.length > 0) {
-			itemErrors.forEach((err) => {
-				errors.push(`Item at index ${i}: ${err}`)
-			})
-		}
-	}
-	return errors
+	const aKeys = Object.keys(a)
+	const bKeys = Object.keys(b)
+
+	if (aKeys.length !== bKeys.length) return false
+	return aKeys.every((key) => isEqual(a[key], b[key]))
 }
 
 export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
@@ -25,117 +21,137 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 			if (!Array.isArray(arr)) {
 				return [`Invalid array: ${String(arr)}`]
 			}
-			return validateArrayItems(arr, itemSchema)
+			return arr.flatMap((item, index) => {
+				const errors = itemSchema.validate(item)
+				return errors.map((error) => `[${index}] ${error}`)
+			})
 		},
-		encode: (arr): Uint8Array => {
-			if (arr === undefined) {
-				throw new Error('Cannot encode an undefined array')
-			}
+		encode: (arr: T[]): Uint8Array => {
 			const writer = new Writer()
 			writer.writeUInt8(0x00)
+
+			if (!arr) {
+				writer.writeUVarint(0)
+				return writer.toBuffer()
+			}
+
 			writer.writeUVarint(arr.length)
-			arr.forEach((item) => {
-				const itemBinary = itemSchema.encode(item ?? undefined)
+
+			for (const item of arr) {
+				const itemBinary = itemSchema.encode(item)
 				writer.writeUVarint(itemBinary.length)
 				writer.writeBuffer(itemBinary)
-			})
+			}
 			return writer.toBuffer()
 		},
-		decode: (binary, prevState?): T[] => {
-			const reader = new Reader(binary as ArrayBufferView)
+		decode: (binary: Uint8Array | ArrayBuffer, prevState?: T[]): T[] => {
+			const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
+			const reader = new Reader(data)
 			const header = reader.readUInt8()
 
 			if (header === 0x00) {
 				const length = reader.readUVarint()
 				const result: T[] = []
 				for (let i = 0; i < length; i++) {
-					const itemLength = reader.readUVarint()
-					const itemBinary = reader.readBuffer(itemLength)
-					const decoded = itemSchema.decode(itemBinary)
-					if (decoded !== undefined) {
-						result.push(decoded)
+					const len = reader.readUVarint()
+					const itemBinary = reader.readBuffer(len)
+					const decodedItem = itemSchema.decode(itemBinary)
+					if (decodedItem !== undefined) {
+						result.push(decodedItem)
 					}
 				}
 				return result
-			} else if (header === 0x01) {
-				return prevState || []
-			} else if (header === 0x02) {
-				if (reader.remaining() === 0) {
-					return []
-				}
+			}
 
-				const length = reader.readUVarint()
-				const result: T[] = []
+			if (header === 0x03) {
+				if (!prevState) return []
 
-				for (let i = 0; i < length; i++) {
-					const changed = reader.readUInt8() === 1
-					if (changed) {
-						const itemLength = reader.readUVarint()
-						const itemBinary = reader.readBuffer(itemLength)
-						const decoded = itemSchema.decode(itemBinary, prevState?.[i])
-						if (decoded !== undefined) {
-							result.push(decoded)
-						}
-					} else if (i < (prevState?.length ?? 0)) {
-						const prevItem = prevState?.[i]
-						if (prevItem !== undefined) {
-							result.push(prevItem)
-						}
+				const finalLength = reader.readUVarint()
+				const changesCount = reader.readUVarint()
+				const result = [...prevState]
+
+				// Truncate or extend array as needed
+				result.length = finalLength
+
+				// Apply changes
+				for (let i = 0; i < changesCount; i++) {
+					const index = reader.readUVarint()
+					const len = reader.readUVarint()
+					const itemBinary = reader.readBuffer(len)
+					const decodedItem = itemSchema.decode(itemBinary, prevState[index])
+
+					if (decodedItem !== undefined) {
+						result[index] = decodedItem
+					} else {
+						delete result[index]
 					}
 				}
-				return result.filter((item) => item !== undefined && (!isObject(item) || Object.keys(item).length > 0))
+
+				// Filter out undefined values while preserving length
+				return result.filter((item) => item !== undefined) as T[]
 			}
-			throw new Error('Invalid header')
+
+			if (header === 0x02 && reader.remaining() === 0) {
+				return undefined as any
+			}
+
+			return prevState || []
 		},
 		encodeDiff: (prev: T[] | undefined, next: T[] | undefined): Uint8Array => {
 			const writer = new Writer()
 
-			if (prev === next) {
+			if (!next) {
+				writer.writeUInt8(0x02)
+				return writer.toBuffer()
+			}
+
+			if (!prev) {
+				return schema.encode(next)
+			}
+
+			if (prev === next || JSON.stringify(prev) === JSON.stringify(next)) {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
 
-			if (next === undefined) {
-				writer.writeUInt8(0x02)
-				writer.writeUVarint(0)
-				return writer.toBuffer()
-			}
-
-			if (prev === undefined) {
-				return schema.encode(next)
-			}
-
-			if (next.length === 0) {
-				writer.writeUInt8(0x02)
-				writer.writeUVarint(0)
-				return writer.toBuffer()
-			}
-
-			const filteredNext = next.filter((item) => {
+			const isValidItem = (item: any): boolean => {
 				if (item === undefined) return false
-				if (!isObject(item)) return true
+				if (Array.isArray(item)) return true
+				if (typeof item !== 'object') return true
+				if (item === null) return false
 				return Object.keys(item).length > 0
-			})
+			}
 
-			writer.writeUInt8(0x02)
-			writer.writeUVarint(Math.max(prev.length, filteredNext.length))
+			const filteredPrev = prev.filter(isValidItem)
+			const filteredNext = next.filter(isValidItem)
 
-			for (let i = 0; i < Math.max(prev.length, filteredNext.length); i++) {
-				const prevItem = i < prev.length ? prev[i] : undefined
-				const nextItem = i < filteredNext.length ? filteredNext[i] : undefined
+			writer.writeUInt8(0x03)
+			writer.writeUVarint(filteredNext.length)
 
-				if (prevItem === nextItem) {
-					writer.writeUInt8(0)
-				} else {
-					writer.writeUInt8(1)
-					const itemDiff = itemSchema.encodeDiff(prevItem, nextItem === undefined ? undefined : nextItem)
-					writer.writeUVarint(itemDiff.length)
-					writer.writeBuffer(itemDiff)
+			const changes: Array<{ index: number; value: T }> = []
+
+			for (let i = 0; i < Math.max(filteredPrev.length, filteredNext.length); i++) {
+				const prevItem = filteredPrev[i]
+				const nextItem = filteredNext[i]
+
+				if (JSON.stringify(prevItem) !== JSON.stringify(nextItem)) {
+					changes.push({ index: i, value: nextItem })
 				}
 			}
+
+			writer.writeUVarint(changes.length)
+
+			for (const change of changes) {
+				writer.writeUVarint(change.index)
+				const itemDiff = itemSchema.encodeDiff(filteredPrev[change.index], change.value)
+				writer.writeUVarint(itemDiff.length)
+				writer.writeBuffer(itemDiff)
+			}
+
 			return writer.toBuffer()
 		}
 	}
+
 	return schema
 }
 
@@ -168,34 +184,59 @@ export function createObject<T extends object>(properties: {
 			const header = reader.readUInt8()
 
 			if (header === 0x00) {
+				// Full object encode
 				const result = {} as T
 				for (const key in properties) {
 					const len = reader.readUVarint()
 					const fieldBinary = reader.readBuffer(len)
-					result[key] = properties[key].decode(fieldBinary)!
+					const value = properties[key].decode(fieldBinary)
+					if (value !== undefined) {
+						result[key] = value
+					}
 				}
 				return result
-			} else if (header === 0x01) {
-				if (prevState === undefined) {
-					throw new Error('No previous state provided for delta update')
-				}
-				return prevState
 			} else if (header === 0x02) {
+				// Check for undefined next state
 				if (reader.remaining() === 0) {
 					return undefined as any
 				}
 
-				const result = prevState ? { ...prevState } : ({} as T)
-				for (const key in properties) {
-					const changed = reader.readUInt8() === 1
-					if (changed) {
-						const len = reader.readUVarint()
-						const fieldBinary = reader.readBuffer(len)
-						result[key] = properties[key].decode(fieldBinary, prevState?.[key] as T[typeof key])!
+				// Start with a clean slate for the result
+				const result = {} as T
+
+				// First, copy over all fields from prevState that aren't explicitly changed
+				if (prevState) {
+					for (const key in prevState) {
+						result[key as keyof T] = prevState[key as keyof T]
 					}
 				}
+
+				// Read field presence bitmap and collect changes
+				const changes = new Map<keyof T, Uint8Array>()
+				for (const key in properties) {
+					const typedKey = key as keyof T
+					if (reader.readUInt8() === 1) {
+						const len = reader.readUVarint()
+						const fieldBinary = reader.readBuffer(len)
+						changes.set(typedKey, fieldBinary)
+					}
+				}
+
+				// Apply changes
+				for (const [key, binary] of changes) {
+					const value = properties[key].decode(binary, prevState?.[key])
+					if (value !== undefined) {
+						result[key] = value
+					} else {
+						delete result[key]
+					}
+				}
+
 				return result
+			} else if (header === 0x01) {
+				return prevState || ({} as T)
 			}
+
 			throw new Error('Invalid header')
 		},
 		encodeDiff: (prev, next): Uint8Array => {
@@ -216,25 +257,26 @@ export function createObject<T extends object>(properties: {
 			}
 
 			writer.writeUInt8(0x02)
-			for (const key in properties) {
-				const prevValue = prev[key]
-				const nextValue = next[key]
 
-				if (prevValue === nextValue) {
-					writer.writeUInt8(0)
-				} else {
+			// Write changes for each property
+			for (const key in properties) {
+				const typedKey = key as keyof T
+				const nextValue = next[typedKey]
+				const prevValue = prev[typedKey]
+
+				// Check if the field should be included in the update
+				const hasChanged = !isEqual(prevValue, nextValue)
+
+				if (hasChanged) {
 					writer.writeUInt8(1)
-					if (nextValue === undefined) {
-						const fieldBinary = properties[key].encode(undefined as any)
-						writer.writeUVarint(fieldBinary.length)
-						writer.writeBuffer(fieldBinary)
-					} else {
-						const fieldDiff = properties[key].encodeDiff(prevValue, nextValue)
-						writer.writeUVarint(fieldDiff.length)
-						writer.writeBuffer(fieldDiff)
-					}
+					const fieldDiff = properties[typedKey].encodeDiff(prevValue, nextValue)
+					writer.writeUVarint(fieldDiff.length)
+					writer.writeBuffer(fieldDiff)
+				} else {
+					writer.writeUInt8(0)
 				}
 			}
+
 			return writer.toBuffer()
 		}
 	}

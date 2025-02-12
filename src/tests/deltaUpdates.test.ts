@@ -699,4 +699,110 @@ describe('Delta Updates', () => {
 			expect(decoded).toEqual(state2)
 		})
 	})
+
+	describe('Delta Updates - State Preservation', () => {
+		const CreatureSchema = createObject({
+			id: Int,
+			x: Int,
+			y: Int,
+			health: Int,
+			type: String,
+			state: String
+		})
+
+		const GameStateSchema = createObject({
+			creatures: createArray(CreatureSchema),
+			items: createArray(String),
+			effects: createArray(String),
+			objects: createArray(String),
+			players: createArray(
+				createObject({
+					id: String,
+					name: String
+				})
+			),
+			spectators: createArray(String),
+			info: createObject({
+				timeElapsed: Int
+			})
+		})
+
+		it('should preserve all creature properties when only y position changes', () => {
+			const state1 = {
+				creatures: [
+					{ id: 1, x: 100, y: 200, health: 100, type: 'warrior', state: 'idle' },
+					{ id: 2, x: 150, y: 180, health: 100, type: 'minion', state: 'idle' }
+				],
+				items: [],
+				effects: [],
+				objects: [],
+				players: [],
+				spectators: [],
+				info: { timeElapsed: 1 }
+			}
+
+			const state2 = {
+				...state1,
+				creatures: [
+					{ ...state1.creatures[0], y: 205 },
+					{ ...state1.creatures[1], y: 188 }
+				],
+				info: { timeElapsed: 2 }
+			}
+
+			const delta = GameStateSchema.encodeDiff(state1, state2)
+			const decoded = GameStateSchema.decode(delta, state1)
+
+			// Verify all properties are preserved
+			expect(decoded?.creatures[0]).toEqual({
+				id: 1,
+				x: 100,
+				y: 205,
+				health: 100,
+				type: 'warrior',
+				state: 'idle'
+			})
+			expect(decoded?.creatures[1]).toEqual({
+				id: 2,
+				x: 150,
+				y: 188,
+				health: 100,
+				type: 'minion',
+				state: 'idle'
+			})
+		})
+
+		it('should handle partial array updates without losing data', () => {
+			const state1 = {
+				creatures: [
+					{ id: 1, x: 100, y: 200, health: 100, type: 'monster', state: 'idle' },
+					{ id: 2, x: 150, y: 180, health: 100, type: 'monster', state: 'idle' }
+				],
+				players: [],
+				items: ['item1', 'item2'],
+				effects: ['effect1'],
+				objects: [],
+				spectators: [],
+				info: { timeElapsed: 0 }
+			}
+
+			// Update only one creature's position
+			const partialUpdate = {
+				creatures: [{ ...state1.creatures[0], y: 205 }, state1.creatures[1]],
+				items: ['item1'],
+				effects: ['effect1'],
+				objects: [],
+				spectators: [],
+				info: { timeElapsed: 1 }
+			}
+
+			const delta = GameStateSchema.encodeDiff(state1, partialUpdate as any)
+			const decoded = GameStateSchema.decode(delta, state1)
+
+			expect(decoded?.creatures[0].health).toBe(100)
+			expect(decoded?.creatures[0].type).toBe('monster')
+			expect(decoded?.creatures[0].state).toBe('idle')
+			expect(decoded).toEqual(partialUpdate)
+		})
+	})
 })
