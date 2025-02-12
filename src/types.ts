@@ -50,43 +50,48 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 		},
 		encode: (value: T | undefined): Uint8Array => {
 			const writer = new BinSerdeWriter()
-			if (value === undefined) {
-				writer.writeUInt8(0x01)
-			} else {
-				writer.writeUInt8(0x00)
+			writer.writeUInt8(0x00)  // Regular data header
+			writer.writeUInt8(value === undefined ? 0x01 : 0x00)  // Optional flag
+			if (value !== undefined) {
 				const binary = schema.encode(value)
 				writer.writeBuffer(binary)
 			}
 			return writer.toBuffer()
 		},
-		decode: (binary: Uint8Array, prevState?: T): T | undefined => {
+		decode: (binary: Uint8Array, prevState?: T | undefined): T | undefined => {
 			const reader = new BinSerdeReader(binary)
 			const header = reader.readUInt8()
-			if (header === 0x01) return undefined
-			if (header === 0x00 || header === 0x02) {
-				const fieldBinary = reader.readBuffer(binary.length - 1)
+			const isUndefined = reader.readUInt8() === 0x01
+			
+			if (isUndefined) {
+				return undefined
+			}
+			
+			const fieldBinary = reader.readBuffer(binary.length - 2)
+			if (header === 0x02 && prevState !== undefined) {
 				return schema.decode(fieldBinary, prevState)
 			}
-			throw new Error('Invalid header in optional field')
+			return schema.decode(fieldBinary)
 		},
 		encodeDiff: (prev: T | undefined, next: T | undefined): Uint8Array => {
+			const writer = new BinSerdeWriter()
+			
 			if (prev === next) {
-				const writer = new BinSerdeWriter()
-				writer.writeUInt8(0x01)
+				writer.writeUInt8(0x01)  // No change
 				return writer.toBuffer()
 			}
 
-			const writer = new BinSerdeWriter()
-			writer.writeUInt8(0x02)
-
-			if (next === undefined) {
-				writer.writeUInt8(0x01)
-			} else if (prev === undefined) {
-				const binary = schema.encode(next)
-				writer.writeBuffer(binary)
-			} else {
-				const diffBinary = schema.encodeDiff(prev, next)
-				writer.writeBuffer(diffBinary)
+			writer.writeUInt8(0x02)  // Delta update
+			writer.writeUInt8(next === undefined ? 0x01 : 0x00)  // Optional flag
+			
+			if (next !== undefined) {
+				if (prev !== undefined) {
+					const diffBinary = schema.encodeDiff(prev, next)
+					writer.writeBuffer(diffBinary)
+				} else {
+					const binary = schema.encode(next)
+					writer.writeBuffer(binary)
+				}
 			}
 
 			return writer.toBuffer()

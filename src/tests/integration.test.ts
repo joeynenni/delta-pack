@@ -326,3 +326,45 @@ describe('Optional Properties Validation', () => {
 		expect(errors).toContain('Property "metadata": Property "name": Invalid string: 123')
 	})
 })
+
+describe('Arrays with Optional Properties', () => {
+	interface Creature {
+		id: number;
+		name: string;
+		equippedItemType: string | undefined;  // Required property that can be undefined
+	}
+
+	const CreatureSchema = createObject<Creature>({
+		id: Int,
+		name: String,
+		equippedItemType: optional(String)
+	})
+	
+	const GameStateSchema = createObject({
+		creatures: createArray(CreatureSchema)
+	})
+
+	it('should handle arrays containing objects with optional properties', () => {
+		const state: { creatures: Creature[] } = {
+			creatures: [
+				{ id: 1, name: 'Goblin', equippedItemType: undefined },
+				{ id: 2, name: 'Warrior', equippedItemType: 'sword' },
+				{ id: 3, name: 'Mage', equippedItemType: undefined }
+			]
+		}
+
+		const binary = GameStateSchema.encode(state)
+		expect(GameStateSchema.decode(binary)).toEqual(state)
+
+		const updatedState: { creatures: Creature[] } = {
+			creatures: [
+				{ id: 1, name: 'Goblin', equippedItemType: 'dagger' },
+				{ id: 2, name: 'Warrior', equippedItemType: undefined },
+				{ id: 3, name: 'Mage', equippedItemType: undefined }
+			]
+		}
+
+		const delta = GameStateSchema.encodeDiff(state, updatedState)
+		expect(GameStateSchema.decode(delta, state)).toEqual(updatedState)
+	})
+})
