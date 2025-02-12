@@ -12,7 +12,7 @@ export const createPrimitive = <T>(
 	encode: (value): Uint8Array => {
 		const writer = new Writer()
 		writer.writeUInt8(0x00)
-		encodeFn(writer, value)
+		encodeFn(writer, value as T)
 		return writer.toBuffer()
 	},
 	decode: (binary, prevState?): T => {
@@ -37,7 +37,7 @@ export const createPrimitive = <T>(
 			writer.writeUInt8(0x01)
 		} else {
 			writer.writeUInt8(0x02)
-			encodeFn(writer, next)
+			encodeFn(writer, next as T)
 		}
 		return writer.toBuffer()
 	}

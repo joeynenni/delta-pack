@@ -8,7 +8,7 @@ export function validatePrimitive(isValid: boolean, errorMessage: string): strin
 export function validateArrayItems<T>(arr: unknown[], itemSchema: Schema<T>): string[] {
 	const errors: string[] = []
 	arr.forEach((item, index) => {
-		const itemErrors = itemSchema.validate(item)
+		const itemErrors = itemSchema.validate(item as T | undefined)
 		if (itemErrors.length > 0) {
 			itemErrors.forEach((err) => {
 				errors.push(`Item at index ${index}: ${err.trim()}`)

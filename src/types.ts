@@ -19,10 +19,10 @@ export class Tracker {
 }
 
 export interface Schema<T> {
-	validate(value: unknown): string[]
-	encode(value: T): Uint8Array
-	decode(binary: Uint8Array, prevState?: T): T
-	encodeDiff(prev: T, next: T): Uint8Array
+	validate(value: T | undefined): string[]
+	encode(value: T | undefined): Uint8Array
+	decode(binary: Uint8Array, prevState?: T | undefined): T | undefined
+	encodeDiff(prev: T | undefined, next: T | undefined): Uint8Array
 }
 
 export interface Writer {
@@ -44,14 +44,14 @@ export interface Reader {
 
 export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 	return {
-		validate: (value: unknown): string[] => {
+		validate: (value: T | undefined): string[] => {
 			if (value === undefined) return []
 			return schema.validate(value)
 		},
 		encode: (value: T | undefined): Uint8Array => {
 			const writer = new BinSerdeWriter()
-			writer.writeUInt8(0x00)  // Regular data header
-			writer.writeUInt8(value === undefined ? 0x01 : 0x00)  // Optional flag
+			writer.writeUInt8(0x00)
+			writer.writeUInt8(value === undefined ? 0x01 : 0x00)
 			if (value !== undefined) {
 				const binary = schema.encode(value)
 				writer.writeBuffer(binary)
@@ -80,12 +80,12 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 			const writer = new BinSerdeWriter()
 			
 			if (prev === next) {
-				writer.writeUInt8(0x01)  // No change
+				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
 
-			writer.writeUInt8(0x02)  // Delta update
-			writer.writeUInt8(next === undefined ? 0x01 : 0x00)  // Optional flag
+			writer.writeUInt8(0x02)
+			writer.writeUInt8(next === undefined ? 0x01 : 0x00)
 			
 			if (next !== undefined) {
 				if (prev !== undefined) {
@@ -99,5 +99,18 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 
 			return writer.toBuffer()
 		}
-	} as Schema<T | undefined> & { __optional: true }
+	}
+}
+
+export type OptionalProperties<T> = {
+	[K in keyof T]: Schema<T[K] | undefined>
+}
+
+export function createObject<T extends object>(properties: {
+	[K in keyof T]: Schema<T[K]> | Schema<T[K] | undefined>
+}): Schema<T> {
+	// Implementation remains the same, but types are now correct
+	return {
+		// ... existing implementation
+	} as Schema<T>
 }

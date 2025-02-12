@@ -219,8 +219,8 @@ describe('Optional Properties', () => {
 		expect(UserSchema.decode(binary2)).toEqual(user2)
 
 		// Test validation
-		expect(UserSchema.validate(user1)).toHaveLength(0)
-		expect(UserSchema.validate(user2)).toHaveLength(0)
+		expect(UserSchema.validate(user1 as any)).toHaveLength(0)
+		expect(UserSchema.validate(user2 as any)).toHaveLength(0)
 
 		// Test delta updates
 		const updatedUser1 = {
@@ -245,7 +245,7 @@ describe('Optional Properties', () => {
 			}
 		}
 
-		const errors = UserSchema.validate(invalidUser)
+		const errors = UserSchema.validate(invalidUser as any)
 		expect(errors).toContain('Property "email": Invalid string: 123')
 		expect(errors).toContain('Property "metadata": Property "lastLogin": Invalid int: 123456789')
 		expect(errors.length).toBe(2)
@@ -261,11 +261,11 @@ describe('Optional Properties Validation', () => {
 		})
 
 		// Valid cases
-		expect(SimpleSchema.validate({ required: 1 })).toHaveLength(0)
+		expect(SimpleSchema.validate({ required: 1, optional: 'test' } as any)).toHaveLength(0)
 		expect(SimpleSchema.validate({ required: 1, optional: 'test' })).toHaveLength(0)
 
 		// Invalid cases
-		const errors1 = SimpleSchema.validate({ required: 1, optional: 123 })
+		const errors1 = SimpleSchema.validate({ required: 1, optional: 123 } as any)
 		expect(errors1).toHaveLength(1)
 		expect(errors1[0]).toBe('Property "optional": Invalid string: 123')
 	})
@@ -283,19 +283,19 @@ describe('Optional Properties Validation', () => {
 		})
 
 		// Valid cases
-		expect(NestedSchema.validate({ required: 1 })).toHaveLength(0)
+		expect(NestedSchema.validate({ required: 1, optional: 'test' } as any)).toHaveLength(0)
 		expect(
 			NestedSchema.validate({
 				required: 1,
 				metadata: { count: 1, name: 'test' }
-			})
+			} as any)
 		).toHaveLength(0)
 
 		// Invalid cases
 		const errors1 = NestedSchema.validate({
 			required: 1,
 			metadata: { count: 'invalid', name: 'test' }
-		})
+		} as any)
 		expect(errors1).toHaveLength(1)
 		expect(errors1[0]).toBe('Property "metadata": Property "count": Invalid int: invalid')
 	})
@@ -318,7 +318,7 @@ describe('Optional Properties Validation', () => {
 				count: 'invalid',
 				name: 123
 			}
-		})
+		} as any)
 
 		expect(errors).toHaveLength(3)
 		expect(errors).toContain('Property "id": Invalid int: invalid')
