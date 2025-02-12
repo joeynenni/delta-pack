@@ -196,35 +196,24 @@ export function createObject<T extends object>(properties: {
 				}
 				return result
 			} else if (header === 0x02) {
-				// Check for undefined next state
 				if (reader.remaining() === 0) {
 					return undefined as any
 				}
 
-				// Start with a clean slate for the result
-				const result = {} as T
+				// Start with previous state or empty object
+				const result = prevState ? { ...prevState } : ({} as T)
 
-				// First, copy over all fields from prevState that aren't explicitly changed
-				if (prevState) {
-					for (const key in prevState) {
-						result[key as keyof T] = prevState[key as keyof T]
-					}
-				}
-
-				// Read field presence bitmap and collect changes
-				const changes = new Map<keyof T, Uint8Array>()
-				for (const key in properties) {
-					const typedKey = key as keyof T
-					if (reader.readUInt8() === 1) {
-						const len = reader.readUVarint()
-						const fieldBinary = reader.readBuffer(len)
-						changes.set(typedKey, fieldBinary)
-					}
-				}
+				// Read number of changed fields
+				const changedFieldsCount = reader.readUVarint()
 
 				// Apply changes
-				for (const [key, binary] of changes) {
-					const value = properties[key].decode(binary, prevState?.[key])
+				for (let i = 0; i < changedFieldsCount; i++) {
+					const fieldIndex = reader.readUVarint()
+					const key = Object.keys(properties)[fieldIndex] as keyof T
+					const len = reader.readUVarint()
+					const fieldBinary = reader.readBuffer(len)
+					const value = properties[key].decode(fieldBinary, prevState?.[key])
+
 					if (value !== undefined) {
 						result[key] = value
 					} else {
@@ -258,23 +247,28 @@ export function createObject<T extends object>(properties: {
 
 			writer.writeUInt8(0x02)
 
-			// Write changes for each property
+			// Create bitmap of changed fields
+			const changedFields = new Set<keyof T>()
 			for (const key in properties) {
 				const typedKey = key as keyof T
 				const nextValue = next[typedKey]
 				const prevValue = prev[typedKey]
 
-				// Check if the field should be included in the update
-				const hasChanged = !isEqual(prevValue, nextValue)
-
-				if (hasChanged) {
-					writer.writeUInt8(1)
-					const fieldDiff = properties[typedKey].encodeDiff(prevValue, nextValue)
-					writer.writeUVarint(fieldDiff.length)
-					writer.writeBuffer(fieldDiff)
-				} else {
-					writer.writeUInt8(0)
+				if (!isEqual(prevValue, nextValue)) {
+					changedFields.add(typedKey)
 				}
+			}
+
+			// Write number of changed fields
+			writer.writeUVarint(changedFields.size)
+
+			// Write changes
+			for (const key of changedFields) {
+				// Write field index instead of field presence
+				writer.writeUVarint(Object.keys(properties).indexOf(key as string))
+				const fieldDiff = properties[key].encodeDiff(prev[key], next[key])
+				writer.writeUVarint(fieldDiff.length)
+				writer.writeBuffer(fieldDiff)
 			}
 
 			return writer.toBuffer()
