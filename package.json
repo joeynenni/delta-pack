@@ -1,6 +1,6 @@
 {
-  "name": "@hathora/delta-pack",
-  "version": "0.0.12",
+  "name": "delta-pack",
+  "version": "0.0.1",
   "license": "MIT",
   "type": "module",
   "main": "dist/generator.js",
@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }
