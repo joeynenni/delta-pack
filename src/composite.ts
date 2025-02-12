@@ -120,7 +120,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 export function createObject<T extends object>(properties: {
 	[K in keyof T]: Schema<T[K]>
 }): Schema<T> {
-	return {
+	const schema: Schema<T> = {
 		validate: (obj: unknown): string[] => {
 			if (typeof obj !== 'object' || obj === null) {
 				return [`Invalid object: ${String(obj)}`]
@@ -163,17 +163,13 @@ export function createObject<T extends object>(properties: {
 					return undefined as any
 				}
 				
-				if (prevState === undefined) {
-					return {} as T
-				}
-				
-				const result = { ...prevState }
+				const result = prevState ? { ...prevState } : {} as T
 				for (const key in properties) {
 					const changed = reader.readUInt8() === 1
 					if (changed) {
 						const len = reader.readUVarint()
 						const fieldBinary = reader.readBuffer(len)
-						result[key] = properties[key].decode(fieldBinary, prevState[key])!
+						result[key] = properties[key].decode(fieldBinary, prevState?.[key] as T[typeof key])!
 					}
 				}
 				return result
@@ -194,29 +190,31 @@ export function createObject<T extends object>(properties: {
 			}
 			
 			if (prev === undefined) {
-				writer.writeUInt8(0x00)
-				for (const key in properties) {
-					const fieldBinary = properties[key].encode(next[key])
-					writer.writeUVarint(fieldBinary.length)
-					writer.writeBuffer(fieldBinary)
-				}
-				return writer.toBuffer()
+				return schema.encode(next)
 			}
 			
 			writer.writeUInt8(0x02)
 			for (const key in properties) {
 				const prevValue = prev[key]
 				const nextValue = next[key]
+				
 				if (prevValue === nextValue) {
 					writer.writeUInt8(0)
 				} else {
 					writer.writeUInt8(1)
-					const fieldDiff = properties[key].encodeDiff(prevValue, nextValue)
-					writer.writeUVarint(fieldDiff.length)
-					writer.writeBuffer(fieldDiff)
+					if (nextValue === undefined) {
+						const fieldBinary = properties[key].encode(undefined as any)
+						writer.writeUVarint(fieldBinary.length)
+						writer.writeBuffer(fieldBinary)
+					} else {
+						const fieldDiff = properties[key].encodeDiff(prevValue, nextValue)
+						writer.writeUVarint(fieldDiff.length)
+						writer.writeBuffer(fieldDiff)
+					}
 				}
 			}
 			return writer.toBuffer()
 		}
 	}
+	return schema
 }
