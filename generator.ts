@@ -81,7 +81,7 @@ export function BooleanType(): BooleanType {
 Handlebars.registerHelper("eq", (a, b) => a === b);
 
 export async function codegenTypescript(doc: Record<string, Type>) {
-  const templateFile = new URL("template.hbs", import.meta.url);
+  const templateFile = new URL("./template.hbs", import.meta.url);
   const response = await fetch(templateFile.toString());
   if (!response.ok) {
     throw new Error(`Failed to fetch template: ${response.statusText}`);
