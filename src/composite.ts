@@ -38,7 +38,7 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 			return writer.toBuffer()
 		},
 		decode: (binary, prevState?): T[] => {
-			const reader = new Reader(binary)
+			const reader = new Reader(binary as ArrayBufferView)
 			const header = reader.readUInt8()
 			if (header === 0x00) {
 				const length = reader.readUVarint()
@@ -114,7 +114,8 @@ export function createObject<T extends object>(properties: {
 			return writer.toBuffer()
 		},
 		decode: (binary, prevState?): T => {
-			const reader = new Reader(binary)
+			const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
+			const reader = new Reader(data)
 			const header = reader.readUInt8()
 			if (header === 0x00) {
 				const result = {} as T
@@ -139,7 +140,7 @@ export function createObject<T extends object>(properties: {
 					if (changed) {
 						const len = reader.readUVarint()
 						const fieldBinary = reader.readBuffer(len)
-						result[key] = properties[key].decode(fieldBinary, prevState[key]!)!
+						result[key] = properties[key].decode(fieldBinary, prevState[key])!
 					}
 				}
 				return result

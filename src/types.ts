@@ -21,7 +21,7 @@ export class Tracker {
 export interface Schema<T> {
 	validate(value: T | undefined): string[]
 	encode(value: T | undefined): Uint8Array
-	decode(binary: Uint8Array, prevState?: T | undefined): T | undefined
+	decode(binary: Uint8Array | ArrayBuffer, prevState?: T | undefined): T | undefined
 	encodeDiff(prev: T | undefined, next: T | undefined): Uint8Array
 }
 
@@ -58,8 +58,9 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 			}
 			return writer.toBuffer()
 		},
-		decode: (binary: Uint8Array, prevState?: T | undefined): T | undefined => {
-			const reader = new BinSerdeReader(binary)
+		decode: (binary: Uint8Array | ArrayBuffer, prevState?: T | undefined): T | undefined => {
+			const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
+			const reader = new BinSerdeReader(data)
 			const header = reader.readUInt8()
 			const isUndefined = reader.readUInt8() === 0x01
 			
@@ -67,7 +68,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 				return undefined
 			}
 
-			const remainingLength = binary.length - 2
+			const remainingLength = data.length - 2
 			if (remainingLength <= 0) return undefined
 
 			const fieldBinary = reader.readBuffer(remainingLength)
@@ -99,7 +100,7 @@ export function optional<T>(schema: Schema<T>): Schema<T | undefined> {
 
 			return writer.toBuffer()
 		}
-	}
+	} as Schema<T | undefined> & { __optional: true }
 }
 
 export type OptionalProperties<T> = {

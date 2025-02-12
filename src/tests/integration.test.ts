@@ -367,4 +367,29 @@ describe('Arrays with Optional Properties', () => {
 		const delta = GameStateSchema.encodeDiff(state, updatedState)
 		expect(GameStateSchema.decode(delta, state)).toEqual(updatedState)
 	})
+
+	it('should handle ArrayBuffer input in decode', () => {
+		const state = {
+			creatures: [
+				{ id: 1, name: 'Goblin', equippedItemType: undefined },
+				{ id: 2, name: 'Warrior', equippedItemType: 'sword' }
+			]
+		}
+
+		const binary = GameStateSchema.encode(state)
+		const arrayBuffer = binary.buffer
+		expect(GameStateSchema.decode(arrayBuffer)).toEqual(state)
+
+		// Test with delta updates
+		const updatedState = {
+			creatures: [
+				{ id: 1, name: 'Goblin', equippedItemType: 'dagger' },
+				{ id: 2, name: 'Warrior', equippedItemType: undefined }
+			]
+		}
+
+		const delta = GameStateSchema.encodeDiff(state, updatedState)
+		const deltaArrayBuffer = delta.buffer
+		expect(GameStateSchema.decode(deltaArrayBuffer, state)).toEqual(updatedState)
+	})
 })

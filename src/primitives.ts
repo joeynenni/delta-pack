@@ -15,8 +15,9 @@ export const createPrimitive = <T>(
 		encodeFn(writer, value as T)
 		return writer.toBuffer()
 	},
-	decode: (binary, prevState?): T => {
-		const reader = new Reader(binary)
+	decode: (binary: Uint8Array | ArrayBuffer, prevState?): T => {
+		const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
+		const reader = new Reader(data)
 		const header = reader.readUInt8()
 		if (header === 0x00) {
 			return decodeFn(reader)
