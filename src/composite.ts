@@ -72,14 +72,36 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[]> {
 		},
 		encodeDiff: (prev, next): Uint8Array => {
 			const writer = new Writer()
+			
+			// Handle undefined cases first
+			if (prev === undefined && next === undefined) {
+				writer.writeUInt8(0x01)
+				return writer.toBuffer()
+			}
+			
+			if (prev === undefined || next === undefined) {
+				writer.writeUInt8(0x02)
+				if (next === undefined) {
+					writer.writeUInt8(0x01)
+				} else {
+					writer.writeUInt8(0x00)
+					const binary = createArray(itemSchema).encode(next)
+					writer.writeBuffer(binary)
+				}
+				return writer.toBuffer()
+			}
+
+			// Normal array diff encoding
 			if (prev === next) {
 				writer.writeUInt8(0x01)
 				return writer.toBuffer()
 			}
+			
 			writer.writeUInt8(0x02)
-			writer.writeUVarint(next!.length)
-			next!.forEach((item, i) => {
-				const itemDiff = itemSchema.encodeDiff(prev![i], item)
+			writer.writeUVarint(next.length)
+			next.forEach((item, i) => {
+				const prevItem = i < prev.length ? prev[i] : undefined
+				const itemDiff = itemSchema.encodeDiff(prevItem, item)
 				const diffReader = new Reader(itemDiff)
 				const diffHeader = diffReader.readUInt8()
 				writer.writeUInt8(diffHeader === 0x02 ? 1 : 0)
@@ -150,11 +172,33 @@ export function createObject<T extends object>(properties: {
 		},
 		encodeDiff: (prev, next): Uint8Array => {
 			const writer = new Writer()
+			
+			// Handle undefined cases first
+			if (prev === undefined && next === undefined) {
+				writer.writeUInt8(0x01)
+				return writer.toBuffer()
+			}
+			
+			if (prev === undefined || next === undefined) {
+				writer.writeUInt8(0x02)
+				if (next === undefined) {
+					writer.writeUInt8(0x01)
+				} else {
+					writer.writeUInt8(0x00)
+					const binary = createObject(properties).encode(next)
+					writer.writeBuffer(binary)
+				}
+				return writer.toBuffer()
+			}
+
+			// Normal object diff encoding
 			let hasChanges = false
 			const fieldDiffs: { key: keyof T; binary: Uint8Array }[] = []
 
 			for (const key in properties) {
-				const fieldDiff = properties[key].encodeDiff(prev![key], next![key])
+				const prevValue = prev[key]
+				const nextValue = next[key]
+				const fieldDiff = properties[key].encodeDiff(prevValue, nextValue)
 				const diffReader = new Reader(fieldDiff)
 				if (diffReader.readUInt8() === 0x02) {
 					hasChanges = true
