@@ -1,6 +1,6 @@
 {
   "name": "delta-pack",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Efficient binary serialization with delta compression",
   "type": "module",
   "main": "dist/index.js",
