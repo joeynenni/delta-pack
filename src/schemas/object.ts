@@ -7,6 +7,15 @@ type SchemaRecord = Record<string, Schema<any>>
 export function createObject<T extends SchemaRecord>(
 	schemas: T
 ): Schema<{ [K in keyof T]: ReturnType<T[K]['decode']> }> {
+	// Create a map of field names to indices at schema creation time
+	const fieldIndices = Object.keys(schemas).reduce(
+		(acc, key, index) => {
+			acc[key] = index
+			return acc
+		},
+		{} as Record<string, number>
+	)
+
 	return {
 		validate: validateObject,
 		encode: encodeObject,
@@ -60,10 +69,10 @@ export function createObject<T extends SchemaRecord>(
 			const numChanges = reader.readUVarint()
 
 			for (let i = 0; i < numChanges; i++) {
-				const key = reader.readString()
-				if (!schemas[key]) {
-					throw new Error(`Invalid field key: ${key}`)
-				}
+				// Read field index instead of string
+				const fieldIndex = reader.readUInt8()
+				const key = Object.keys(schemas)[fieldIndex]
+
 				const length = reader.readUVarint()
 				const fieldBinary = reader.readBuffer(length)
 				result[key] = schemas[key].decode(fieldBinary, prevState?.[key])
@@ -144,7 +153,8 @@ export function createObject<T extends SchemaRecord>(
 
 		// Write changed fields
 		for (const { key, binary } of changedFields) {
-			writer.writeString(key)
+			// Write field index instead of string
+			writer.writeUInt8(fieldIndices[key])
 			writer.writeUVarint(binary.length)
 			writer.writeBuffer(binary)
 		}

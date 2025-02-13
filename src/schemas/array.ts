@@ -140,61 +140,72 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 
 	function hasEntityChanged(prev: T, next: T): boolean {
 		// Fast equality check for primitives
-		if (typeof prev !== 'object' || typeof next !== 'object') {
+		if (typeof prev !== typeof next) return true
+
+		const type = typeof prev
+		if (type === 'number' || type === 'string' || type === 'boolean') {
 			return prev !== next
 		}
 
-		// Handle null values
 		if (prev === null || next === null) {
 			return prev !== next
 		}
 
-		// For objects, do a shallow comparison of values
+		if (Array.isArray(prev)) {
+			if (!Array.isArray(next) || prev.length !== next.length) return true
+			return prev.some((val, i) => val !== next[i])
+		}
+
+		// Type guard to ensure we're working with objects
+		if (typeof prev !== 'object' || typeof next !== 'object') {
+			return true
+		}
+
+		// At this point, we know both prev and next are objects
 		const prevObj = prev as Record<string, unknown>
 		const nextObj = next as Record<string, unknown>
 
 		const prevKeys = Object.keys(prevObj)
 		const nextKeys = Object.keys(nextObj)
 
-		if (prevKeys.length !== nextKeys.length) {
-			return true
-		}
+		if (prevKeys.length !== nextKeys.length) return true
 
-		for (const key of prevKeys) {
-			if (prevObj[key] !== nextObj[key]) {
-				return true
-			}
-		}
+		// Use Set for faster key lookup
+		const keySet = new Set(prevKeys)
+		if (!nextKeys.every((key) => keySet.has(key))) return true
 
-		return false
+		return prevKeys.some((key) => prevObj[key] !== nextObj[key])
 	}
-}
-
-function readChangeFlags(reader: Reader, length: number): boolean[] {
-	const flags: boolean[] = []
-	const numBytes = Math.ceil(length / 8)
-
-	for (let i = 0; i < numBytes; i++) {
-		const byte = reader.readUInt8()
-		for (let j = 0; j < 8 && flags.length < length; j++) {
-			flags.push((byte & (1 << j)) !== 0)
-		}
-	}
-
-	return flags
 }
 
 function writeChangeFlags(writer: Writer, flags: boolean[]): void {
 	const numBytes = Math.ceil(flags.length / 8)
 
-	for (let i = 0; i < numBytes; i++) {
+	for (let byteIndex = 0; byteIndex < numBytes; byteIndex++) {
 		let byte = 0
-		for (let j = 0; j < 8; j++) {
-			const idx = i * 8 + j
-			if (idx < flags.length && flags[idx]) {
-				byte |= 1 << j
+		for (let bitIndex = 0; bitIndex < 8; bitIndex++) {
+			const flagIndex = byteIndex * 8 + bitIndex
+			if (flagIndex < flags.length && flags[flagIndex]) {
+				byte |= 1 << bitIndex
 			}
 		}
 		writer.writeUInt8(byte)
 	}
+}
+
+function readChangeFlags(reader: Reader, length: number): boolean[] {
+	const flags: boolean[] = new Array(length)
+	const numBytes = Math.ceil(length / 8)
+
+	for (let byteIndex = 0; byteIndex < numBytes; byteIndex++) {
+		const byte = reader.readUInt8()
+		for (let bitIndex = 0; bitIndex < 8; bitIndex++) {
+			const flagIndex = byteIndex * 8 + bitIndex
+			if (flagIndex < length) {
+				flags[flagIndex] = (byte & (1 << bitIndex)) !== 0
+			}
+		}
+	}
+
+	return flags
 }
