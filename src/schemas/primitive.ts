@@ -41,7 +41,10 @@ export function createPrimitive<T>({
 	function decodePrimitive(binary: Uint8Array | ArrayBuffer, prevState?: T): T {
 		const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
 		if (!data?.length) {
-			throw new Error('Invalid binary data: empty buffer')
+			if (prevState === undefined) {
+				throw new Error('Invalid binary data: empty buffer and no previous state')
+			}
+			return prevState
 		}
 		const reader = new Reader(data)
 		const header = reader.readUInt8()
@@ -72,6 +75,11 @@ export function createPrimitive<T>({
 
 		if (next === undefined) {
 			writer.writeUInt8(HEADERS.DELETION_VALUE)
+			return writer.toBuffer()
+		}
+
+		if (prev === next) {
+			writer.writeUInt8(HEADERS.NO_CHANGE_VALUE)
 			return writer.toBuffer()
 		}
 

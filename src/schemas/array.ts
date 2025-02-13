@@ -114,16 +114,21 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 		writer.writeUInt8(HEADERS.DELTA_ARRAY)
 		writer.writeUVarint(next.length)
 
-		// Calculate and write change flags
-		const changes = new Array(next.length).fill(false)
-		for (let i = 0; i < next.length; i++) {
-			changes[i] = !prev[i] || JSON.stringify(prev[i]) !== JSON.stringify(next[i])
-		}
-		writeChangeFlags(writer, changes)
+		// First pass: identify which entities actually changed
+		const entityChanges = new Array(next.length).fill(false)
 
-		// Write changed items
 		for (let i = 0; i < next.length; i++) {
-			if (changes[i]) {
+			if (!prev[i] || hasEntityChanged(prev[i], next[i])) {
+				entityChanges[i] = true
+			}
+		}
+
+		// Write entity change mask
+		writeChangeFlags(writer, entityChanges)
+
+		// Only for changed entities, write their changes
+		for (let i = 0; i < next.length; i++) {
+			if (entityChanges[i]) {
 				const itemDelta = itemSchema.encodeDiff(prev[i], next[i])
 				writer.writeUVarint(itemDelta.length)
 				writer.writeBuffer(itemDelta)
@@ -131,6 +136,37 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 		}
 
 		return writer.toBuffer()
+	}
+
+	function hasEntityChanged(prev: T, next: T): boolean {
+		// Fast equality check for primitives
+		if (typeof prev !== 'object' || typeof next !== 'object') {
+			return prev !== next
+		}
+
+		// Handle null values
+		if (prev === null || next === null) {
+			return prev !== next
+		}
+
+		// For objects, do a shallow comparison of values
+		const prevObj = prev as Record<string, unknown>
+		const nextObj = next as Record<string, unknown>
+
+		const prevKeys = Object.keys(prevObj)
+		const nextKeys = Object.keys(nextObj)
+
+		if (prevKeys.length !== nextKeys.length) {
+			return true
+		}
+
+		for (const key of prevKeys) {
+			if (prevObj[key] !== nextObj[key]) {
+				return true
+			}
+		}
+
+		return false
 	}
 }
 

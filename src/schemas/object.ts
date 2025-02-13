@@ -39,6 +39,11 @@ export function createObject<T extends SchemaRecord>(
 
 	function decodeObject(binary: Uint8Array | ArrayBuffer, prevState?: any): any {
 		const reader = new Reader(binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary)
+
+		if (!binary || (binary instanceof Uint8Array && !binary.length)) {
+			return prevState || {}
+		}
+
 		const header = reader.readUInt8()
 
 		if (header === HEADERS.DELETION_OBJECT) {
@@ -52,23 +57,25 @@ export function createObject<T extends SchemaRecord>(
 		const result = prevState ? { ...prevState } : {}
 
 		if (header === HEADERS.DELTA_OBJECT) {
-			const schemaEntries = Object.entries(schemas)
-			const changes = readChangeFlags(reader, schemaEntries.length)
+			const numChanges = reader.readUVarint()
 
-			for (let i = 0; i < schemaEntries.length; i++) {
-				if (changes[i]) {
-					const [key, schema] = schemaEntries[i]
-					const length = reader.readUVarint()
-					const fieldBinary = reader.readBuffer(length)
-					result[key] = schema.decode(fieldBinary, prevState?.[key])
+			for (let i = 0; i < numChanges; i++) {
+				const key = reader.readString()
+				if (!schemas[key]) {
+					throw new Error(`Invalid field key: ${key}`)
 				}
+				const length = reader.readUVarint()
+				const fieldBinary = reader.readBuffer(length)
+				result[key] = schemas[key].decode(fieldBinary, prevState?.[key])
 			}
-		} else {
+		} else if (header === HEADERS.FULL_OBJECT) {
 			for (const [key, schema] of Object.entries(schemas)) {
 				const length = reader.readUVarint()
 				const fieldBinary = reader.readBuffer(length)
 				result[key] = schema.decode(fieldBinary)
 			}
+		} else {
+			throw new Error(`Invalid header: ${header}`)
 		}
 
 		return result
@@ -91,63 +98,57 @@ export function createObject<T extends SchemaRecord>(
 			return encodeObject(next)
 		}
 
-		const schemaEntries = Object.entries(schemas)
-		const changes = new Array(schemaEntries.length).fill(false)
-		const changedValues: Uint8Array[] = []
-
-		// First pass: collect changes
-		for (let i = 0; i < schemaEntries.length; i++) {
-			const [key, schema] = schemaEntries[i]
-			const prevValue = prev[key]
-			const nextValue = next[key]
-
-			const delta = schema.encodeDiff(prevValue, nextValue)
-			if (delta.length > 1 || delta[0] !== HEADERS.NO_CHANGE_VALUE) {
-				changes[i] = true
-				changedValues.push(delta)
+		// Quick shallow comparison first
+		let hasChanges = false
+		const schemaKeys = Object.keys(schemas)
+		for (const key of schemaKeys) {
+			if (prev[key] !== next[key]) {
+				hasChanges = true
+				break
 			}
 		}
 
-		if (changedValues.length === 0) {
+		if (!hasChanges) {
 			writer.writeUInt8(HEADERS.NO_CHANGE_OBJECT)
 			return writer.toBuffer()
 		}
 
 		writer.writeUInt8(HEADERS.DELTA_OBJECT)
 
-		// Write change flags as bits
-		const numBytes = Math.ceil(changes.length / 8)
-		for (let i = 0; i < numBytes; i++) {
-			let byte = 0
-			for (let j = 0; j < 8; j++) {
-				const idx = i * 8 + j
-				if (idx < changes.length && changes[idx]) {
-					byte |= 1 << j
-				}
+		// Collect and encode only the changed fields
+		const changedFields: Array<{ key: string; binary: Uint8Array }> = []
+
+		for (const key of schemaKeys) {
+			const schema = schemas[key]
+			const prevValue = prev[key]
+			const nextValue = next[key]
+
+			// Skip encoding if values are identical
+			if (prevValue === nextValue) continue
+
+			const delta = schema.encodeDiff(prevValue, nextValue)
+			// Only include if there's an actual change
+			if (delta.length > 1 || delta[0] !== HEADERS.NO_CHANGE_VALUE) {
+				changedFields.push({ key, binary: delta })
 			}
-			writer.writeUInt8(byte)
 		}
 
-		// Write changed values
-		for (const binary of changedValues) {
+		// If no actual changes after detailed check, return no-change
+		if (changedFields.length === 0) {
+			writer.writeUInt8(HEADERS.NO_CHANGE_OBJECT)
+			return writer.toBuffer()
+		}
+
+		// Write number of changed fields
+		writer.writeUVarint(changedFields.length)
+
+		// Write changed fields
+		for (const { key, binary } of changedFields) {
+			writer.writeString(key)
 			writer.writeUVarint(binary.length)
 			writer.writeBuffer(binary)
 		}
 
 		return writer.toBuffer()
 	}
-}
-
-function readChangeFlags(reader: Reader, length: number): boolean[] {
-	const flags: boolean[] = []
-	const numBytes = Math.ceil(length / 8)
-
-	for (let i = 0; i < numBytes; i++) {
-		const byte = reader.readUInt8()
-		for (let j = 0; j < 8 && flags.length < length; j++) {
-			flags.push((byte & (1 << j)) !== 0)
-		}
-	}
-
-	return flags
 }
