@@ -1,5 +1,4 @@
 {
-  "include": ["generator.ts"],
   "compilerOptions": {
     "strict": true,
     "declaration": true,
@@ -12,5 +11,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist"
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
 }
