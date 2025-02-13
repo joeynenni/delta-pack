@@ -37,21 +37,4 @@ export interface Schema<T> {
 	encodeDiff: (prev: T | undefined, next: T | typeof NO_DIFF | undefined) => Uint8Array
 }
 
-export interface Writer {
-	writeUInt8(value: number): void
-	writeVarint(value: number): void
-	writeUVarint(value: number): void
-	writeFloat64(value: number): void
-	writeBytes(bytes: Uint8Array): void
-	toUint8Array(): Uint8Array
-}
-
-export interface Reader {
-	readUInt8(): number
-	readVarint(): number
-	readUVarint(): number
-	readFloat64(): number
-	readBytes(length: number): Uint8Array
-}
-
 export type HeaderType = (typeof HEADERS)[keyof typeof HEADERS]

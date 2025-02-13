@@ -1,6 +1,7 @@
 import { Writer, Reader } from 'bin-serde'
 import { HEADERS, NO_DIFF } from '../constants'
 import { Schema } from '../types'
+import { BitTracker } from '../utils/tracker'
 
 type SchemaRecord = Record<string, Schema<any>>
 
@@ -47,86 +48,103 @@ export function createObject<T extends SchemaRecord>(
 	}
 
 	function decodeObject(binary: Uint8Array | ArrayBuffer, prevState?: any): any {
-		const reader = new Reader(binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary)
-
 		if (!binary || (binary instanceof Uint8Array && !binary.length)) {
-			return prevState || {}
+			if (prevState === undefined) {
+				throw new Error('Invalid binary data: empty buffer and no previous state')
+			}
+			return prevState
 		}
 
+		const reader = new Reader(binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary)
 		const header = reader.readUInt8()
 
-		if (header === HEADERS.DELETION_OBJECT) {
-			return undefined
+		switch (header) {
+			case HEADERS.FULL_OBJECT:
+				return decodeFullObject(reader)
+			case HEADERS.DELTA_OBJECT:
+				return decodeDeltaObject(reader, prevState || {})
+			case HEADERS.NO_CHANGE_OBJECT:
+				if (prevState === undefined) {
+					throw new Error('No previous state available')
+				}
+				return prevState
+			case HEADERS.DELETION_OBJECT:
+				return undefined
+			case HEADERS.FULL_VALUE:
+			case HEADERS.NO_CHANGE_VALUE:
+			case HEADERS.DELETION_VALUE:
+				// Create a new reader with the remaining buffer
+				const remainingBuffer = reader.readBuffer(reader.remaining())
+				const schema = Object.values(schemas)[0]
+				return schema.decode(remainingBuffer, prevState)
+			default:
+				throw new Error(`Invalid header: ${header}`)
+		}
+	}
+
+	function decodeFullObject(reader: Reader): any {
+		const result: any = {}
+		const schemaKeys = Object.keys(schemas)
+
+		for (const key of schemaKeys) {
+			const schema = schemas[key]
+			const length = reader.readUVarint()
+			const fieldBinary = reader.readBuffer(length)
+			result[key] = schema.decode(fieldBinary)
 		}
 
-		if (header === HEADERS.NO_CHANGE_OBJECT) {
-			return prevState || {}
-		}
+		return result
+	}
 
-		const result = prevState ? { ...prevState } : {}
+	function decodeDeltaObject(reader: Reader, prevState: any): any {
+		const result = { ...prevState }
+		const numChanges = reader.readUVarint()
+		const bitMask = reader.readBuffer(Math.ceil(numChanges / 8))
+		const tracker = BitTracker.fromBinary(bitMask, numChanges)
 
-		if (header === HEADERS.DELTA_OBJECT) {
-			const numChanges = reader.readUVarint()
-
-			for (let i = 0; i < numChanges; i++) {
-				// Read field index instead of string
-				const fieldIndex = reader.readUInt8()
-				const key = Object.keys(schemas)[fieldIndex]
-
+		const schemaKeys = Object.keys(schemas)
+		for (let i = 0; i < schemaKeys.length; i++) {
+			if (tracker.next()) {
+				const key = schemaKeys[reader.readUInt8()]
 				const length = reader.readUVarint()
 				const fieldBinary = reader.readBuffer(length)
-				result[key] = schemas[key].decode(fieldBinary, prevState?.[key])
+				result[key] = schemas[key].decode(fieldBinary, prevState[key])
 			}
-		} else if (header === HEADERS.FULL_OBJECT) {
-			for (const [key, schema] of Object.entries(schemas)) {
-				const length = reader.readUVarint()
-				const fieldBinary = reader.readBuffer(length)
-				result[key] = schema.decode(fieldBinary)
-			}
-		} else {
-			throw new Error(`Invalid header: ${header}`)
 		}
 
 		return result
 	}
 
 	function encodeDiff(prev: any, next: any): Uint8Array {
-		const writer = new Writer()
-
 		if (prev === next || next === NO_DIFF) {
+			const writer = new Writer()
 			writer.writeUInt8(HEADERS.NO_CHANGE_OBJECT)
 			return writer.toBuffer()
 		}
 
-		if (!next) {
+		if (next === undefined) {
+			const writer = new Writer()
 			writer.writeUInt8(HEADERS.DELETION_OBJECT)
 			return writer.toBuffer()
 		}
 
-		if (!prev) {
-			return encodeObject(next)
-		}
-
-		// Quick shallow comparison first
-		let hasChanges = false
-		const schemaKeys = Object.keys(schemas)
-		for (const key of schemaKeys) {
-			if (prev[key] !== next[key]) {
-				hasChanges = true
-				break
-			}
-		}
-
-		if (!hasChanges) {
-			writer.writeUInt8(HEADERS.NO_CHANGE_OBJECT)
-			return writer.toBuffer()
-		}
+		const tracker = new BitTracker()
+		const writer = new Writer()
 
 		writer.writeUInt8(HEADERS.DELTA_OBJECT)
+		encodeWithTracker(prev || {}, next, tracker, writer)
 
-		// Collect and encode only the changed fields
-		const changedFields: Array<{ key: string; binary: Uint8Array }> = []
+		const bitMask = tracker.toBinary()
+		const finalWriter = new Writer()
+		finalWriter.writeUVarint(tracker.length)
+		finalWriter.writeBuffer(bitMask)
+		finalWriter.writeBuffer(writer.toBuffer())
 
+		return finalWriter.toBuffer()
+	}
+
+	function encodeWithTracker(prev: any, next: any, tracker: BitTracker, writer: Writer) {
+		const schemaKeys = Object.keys(schemas)
 		for (const key of schemaKeys) {
 			const schema = schemas[key]
 			const prevValue = prev[key]
@@ -138,27 +156,13 @@ export function createObject<T extends SchemaRecord>(
 			const delta = schema.encodeDiff(prevValue, nextValue)
 			// Only include if there's an actual change
 			if (delta.length > 1 || delta[0] !== HEADERS.NO_CHANGE_VALUE) {
-				changedFields.push({ key, binary: delta })
+				tracker.push(true)
+				writer.writeUInt8(fieldIndices[key])
+				writer.writeUVarint(delta.length)
+				writer.writeBuffer(delta)
+			} else {
+				tracker.push(false)
 			}
 		}
-
-		// If no actual changes after detailed check, return no-change
-		if (changedFields.length === 0) {
-			writer.writeUInt8(HEADERS.NO_CHANGE_OBJECT)
-			return writer.toBuffer()
-		}
-
-		// Write number of changed fields
-		writer.writeUVarint(changedFields.length)
-
-		// Write changed fields
-		for (const { key, binary } of changedFields) {
-			// Write field index instead of string
-			writer.writeUInt8(fieldIndices[key])
-			writer.writeUVarint(binary.length)
-			writer.writeBuffer(binary)
-		}
-
-		return writer.toBuffer()
 	}
 }
