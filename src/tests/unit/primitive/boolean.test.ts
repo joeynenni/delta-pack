@@ -1,6 +1,13 @@
 import { Boolean } from '../../../schemas/primitive'
+import { createObject } from '../../../schemas/object'
 
 describe('Boolean Schema', () => {
+	const TestSchema = createObject({
+		active: Boolean,
+		enabled: Boolean,
+		visible: Boolean
+	})
+
 	describe('Validation', () => {
 		it('should validate booleans', () => {
 			expect(Boolean.validate(true)).toHaveLength(0)
@@ -23,33 +30,55 @@ describe('Boolean Schema', () => {
 				expect(Boolean.decode(binary)).toBe(value)
 			}
 		})
-
-		it('should use minimal encoding', () => {
-			expect(Boolean.encode(true).length).toBe(1)
-			expect(Boolean.encode(false).length).toBe(1)
-		})
 	})
 
 	describe('Delta Updates', () => {
-		it('should encode value changes', () => {
-			const testCases = [
-				[true, false],
-				[false, true]
-			]
-
-			for (const [prev, next] of testCases) {
-				const delta = Boolean.encodeDiff(prev, next)
-				expect(Boolean.decode(delta, prev)).toBe(next)
+		it('should handle single boolean change', () => {
+			const state1 = {
+				active: true,
+				enabled: false,
+				visible: true
 			}
+
+			const state2 = {
+				active: false, // Changed
+				enabled: false, // Same
+				visible: true // Same
+			}
+
+			const delta = TestSchema.encodeDiff(state1, state2)
+			const decoded = TestSchema.decode(delta, state1)
+			expect(decoded).toEqual(state2)
 		})
 
-		it('should optimize no-change cases', () => {
-			const testCases = [true, false]
-			for (const value of testCases) {
-				const delta = Boolean.encodeDiff(value, value)
-				expect(delta.length).toBe(1)
-				expect(Boolean.decode(delta, value)).toBe(value)
+		it('should handle multiple boolean changes', () => {
+			const state1 = {
+				active: true,
+				enabled: false,
+				visible: true
 			}
+
+			const state2 = {
+				active: false, // Changed
+				enabled: true, // Changed
+				visible: false // Changed
+			}
+
+			const delta = TestSchema.encodeDiff(state1, state2)
+			const decoded = TestSchema.decode(delta, state1)
+			expect(decoded).toEqual(state2)
+		})
+
+		it('should handle no changes', () => {
+			const state = {
+				active: true,
+				enabled: false,
+				visible: true
+			}
+
+			const delta = TestSchema.encodeDiff(state, state)
+			const decoded = TestSchema.decode(delta, state)
+			expect(decoded).toEqual(state)
 		})
 	})
 })

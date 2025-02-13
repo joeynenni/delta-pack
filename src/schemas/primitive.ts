@@ -13,40 +13,18 @@ export function createPrimitive<T>({
 	name,
 	validate,
 	encode: encodeFn,
-	decode: decodeFn,
-	minimal = false
-}: PrimitiveOptions<T> & {
-	minimal?: boolean
-}): Schema<T> {
+	decode: decodeFn
+}: PrimitiveOptions<T>): Schema<T> {
 	return {
 		validate: validatePrimitive,
-		encode: minimal ? encodeMinimal : encodePrimitive,
-		decode: minimal ? decodeMinimal : decodePrimitive,
+		encode: encodePrimitive,
+		decode: decodePrimitive,
 		encodeDiff: encodePrimitiveDiff
 	}
 
 	function validatePrimitive(value: T | undefined): string[] {
 		if (value === undefined) return [`${name} is required`]
 		return validate(value) ? [] : [`Invalid ${name}: ${value}`]
-	}
-
-	function encodeMinimal(value: T): Uint8Array {
-		const errors = validatePrimitive(value)
-		if (errors.length > 0) {
-			throw new Error(errors[0])
-		}
-		const writer = new Writer()
-		encodeFn(writer, value)
-		return writer.toBuffer()
-	}
-
-	function decodeMinimal(binary: Uint8Array | ArrayBuffer): T {
-		const data = binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary
-		if (!data?.length) {
-			throw new Error('Invalid binary data: empty buffer')
-		}
-		const reader = new Reader(data)
-		return decodeFn(reader)
 	}
 
 	function encodePrimitive(value: T): Uint8Array {
@@ -71,10 +49,6 @@ export function createPrimitive<T>({
 	}
 
 	function handlePrimitiveDecodeByHeader(header: number, reader: Reader, prevState?: T): T {
-		if (minimal) {
-			return decodeFn(reader)
-		}
-
 		switch (header) {
 			case HEADERS.FULL_VALUE:
 				return decodeFn(reader)
@@ -92,11 +66,7 @@ export function createPrimitive<T>({
 		const writer = new Writer()
 
 		if (prev === next || next === NO_DIFF) {
-			if (minimal) {
-				writer.writeUInt8(prev ? 1 : 0)
-			} else {
-				writer.writeUInt8(HEADERS.NO_CHANGE_VALUE)
-			}
+			writer.writeUInt8(HEADERS.NO_CHANGE_VALUE)
 			return writer.toBuffer()
 		}
 
@@ -105,12 +75,8 @@ export function createPrimitive<T>({
 			return writer.toBuffer()
 		}
 
-		if (minimal) {
-			writer.writeUInt8(next ? 1 : 0)
-		} else {
-			writer.writeUInt8(HEADERS.FULL_VALUE)
-			encodeFn(writer, next)
-		}
+		writer.writeUInt8(HEADERS.FULL_VALUE)
+		encodeFn(writer, next)
 		return writer.toBuffer()
 	}
 }
@@ -149,6 +115,5 @@ export const Boolean = createPrimitive({
 	name: 'Boolean',
 	validate: (value): value is boolean => typeof value === 'boolean',
 	encode: (writer, value) => writer.writeUInt8(value ? 1 : 0),
-	decode: (reader) => reader.readUInt8() === 1,
-	minimal: true
+	decode: (reader) => reader.readUInt8() === 1
 })
