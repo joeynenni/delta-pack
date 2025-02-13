@@ -18,10 +18,8 @@ export function createObject<T extends SchemaRecord>(
 		if (!obj || typeof obj !== 'object') {
 			return [`Invalid object: ${String(obj)}`]
 		}
-
 		return Object.entries(schemas).flatMap(([key, schema]) => {
-			const value = obj[key]
-			const errors = schema.validate(value)
+			const errors = schema.validate(obj[key])
 			return errors.map((error) => `${key}: ${error}`)
 		})
 	}
@@ -31,8 +29,7 @@ export function createObject<T extends SchemaRecord>(
 		writer.writeUInt8(HEADERS.FULL_OBJECT)
 
 		for (const [key, schema] of Object.entries(schemas)) {
-			const value = obj?.[key]
-			const binary = schema.encode(value)
+			const binary = schema.encode(obj[key])
 			writer.writeUVarint(binary.length)
 			writer.writeBuffer(binary)
 		}
@@ -44,49 +41,33 @@ export function createObject<T extends SchemaRecord>(
 		const reader = new Reader(binary instanceof ArrayBuffer ? new Uint8Array(binary) : binary)
 		const header = reader.readUInt8()
 
-		return handleObjectDecodeByHeader(header, reader, prevState)
-	}
-
-	function handleObjectDecodeByHeader(header: number, reader: Reader, prevState?: any): any {
-		switch (header) {
-			case HEADERS.FULL_OBJECT:
-				return decodeFullObject(reader)
-			case HEADERS.NO_CHANGE_OBJECT:
-				return prevState || {}
-			case HEADERS.DELETION_OBJECT:
-				return undefined
-			case HEADERS.DELTA_OBJECT:
-				return decodeDeltaUpdates(reader, prevState)
-			default:
-				return prevState || {}
-		}
-	}
-
-	function decodeFullObject(reader: Reader): any {
-		const result: any = {}
-		const schemaEntries = Object.entries(schemas)
-
-		for (const [key, schema] of schemaEntries) {
-			const length = reader.readUVarint()
-			const binary = reader.readBuffer(length)
-			result[key] = schema.decode(binary)
+		if (header === HEADERS.DELETION_OBJECT) {
+			return undefined
 		}
 
-		return result
-	}
+		if (header === HEADERS.NO_CHANGE_OBJECT) {
+			return prevState || {}
+		}
 
-	function decodeDeltaUpdates(reader: Reader, prevState: any = {}): any {
-		const result = { ...prevState }
-		const changeCount = reader.readUVarint()
+		const result = prevState ? { ...prevState } : {}
 
-		for (let i = 0; i < changeCount; i++) {
-			const keyIndex = reader.readUVarint()
-			const key = Object.keys(schemas)[keyIndex]
-			const schema = schemas[key]
+		if (header === HEADERS.DELTA_OBJECT) {
+			const changeCount = reader.readUVarint()
+			const schemaEntries = Object.entries(schemas)
 
-			const length = reader.readUVarint()
-			const binary = reader.readBuffer(length)
-			result[key] = schema.decode(binary, prevState?.[key])
+			for (let i = 0; i < changeCount; i++) {
+				const keyIndex = reader.readUVarint()
+				const [key, schema] = schemaEntries[keyIndex]
+				const length = reader.readUVarint()
+				const fieldBinary = reader.readBuffer(length)
+				result[key] = schema.decode(fieldBinary, prevState?.[key])
+			}
+		} else {
+			for (const [key, schema] of Object.entries(schemas)) {
+				const length = reader.readUVarint()
+				const fieldBinary = reader.readBuffer(length)
+				result[key] = schema.decode(fieldBinary)
+			}
 		}
 
 		return result

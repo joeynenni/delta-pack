@@ -9,5 +9,6 @@ export default {
   transformIgnorePatterns: [
     'node_modules/(?!(bin-serde)/)'
   ],
+  testPathIgnorePatterns: ['/dist/'],
   extensionsToTreatAsEsm: ['.ts']
 } 
