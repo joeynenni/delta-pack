@@ -48,22 +48,32 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 			return undefined
 		}
 
-		return handleArrayDecodeByHeader(header, reader, prevState)
-	}
-
-	function handleArrayDecodeByHeader(header: number, reader: Reader, prevState?: T[]): T[] {
-		switch (header) {
-			case HEADERS.FULL_ARRAY:
-				return decodeFullArray(reader)
-			case HEADERS.NO_CHANGE_ARRAY:
-				return prevState || []
-			case HEADERS.EMPTY_ARRAY:
-				return []
-			case HEADERS.DELTA_ARRAY:
-				return decodeDeltaUpdates(reader, prevState)
-			default:
-				return prevState || []
+		if (header === HEADERS.NO_CHANGE_ARRAY) {
+			return prevState || []
 		}
+
+		if (header === HEADERS.EMPTY_ARRAY) {
+			return []
+		}
+
+		if (header === HEADERS.DELTA_ARRAY) {
+			const length = reader.readUVarint()
+			const result = new Array(length)
+			const changeFlags = readChangeFlags(reader, length)
+
+			for (let i = 0; i < length; i++) {
+				if (changeFlags[i]) {
+					const itemLength = reader.readUVarint()
+					const itemBinary = reader.readBuffer(itemLength)
+					result[i] = itemSchema.decode(itemBinary, prevState?.[i])
+				} else {
+					result[i] = prevState?.[i]
+				}
+			}
+			return result
+		}
+
+		return decodeFullArray(reader)
 	}
 
 	function decodeFullArray(reader: Reader): T[] {
@@ -74,19 +84,6 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 			const itemLength = reader.readUVarint()
 			const itemBinary = reader.readBuffer(itemLength)
 			result[i] = itemSchema.decode(itemBinary)
-		}
-
-		return result
-	}
-
-	function decodeDeltaUpdates(reader: Reader, prevState: T[] = []): T[] {
-		const length = reader.readUVarint()
-		const result: T[] = new Array(length)
-
-		for (let i = 0; i < length; i++) {
-			const itemLength = reader.readUVarint()
-			const itemBinary = reader.readBuffer(itemLength)
-			result[i] = itemSchema.decode(itemBinary, prevState[i])
 		}
 
 		return result
@@ -117,14 +114,51 @@ export function createArray<T>(itemSchema: Schema<T>): Schema<T[] | undefined> {
 		writer.writeUInt8(HEADERS.DELTA_ARRAY)
 		writer.writeUVarint(next.length)
 
+		// Calculate and write change flags
+		const changes = new Array(next.length).fill(false)
 		for (let i = 0; i < next.length; i++) {
-			const prevItem = prev[i]
-			const nextItem = next[i]
-			const itemDelta = itemSchema.encodeDiff(prevItem, nextItem)
-			writer.writeUVarint(itemDelta.length)
-			writer.writeBuffer(itemDelta)
+			changes[i] = !prev[i] || JSON.stringify(prev[i]) !== JSON.stringify(next[i])
+		}
+		writeChangeFlags(writer, changes)
+
+		// Write changed items
+		for (let i = 0; i < next.length; i++) {
+			if (changes[i]) {
+				const itemDelta = itemSchema.encodeDiff(prev[i], next[i])
+				writer.writeUVarint(itemDelta.length)
+				writer.writeBuffer(itemDelta)
+			}
 		}
 
 		return writer.toBuffer()
+	}
+}
+
+function readChangeFlags(reader: Reader, length: number): boolean[] {
+	const flags: boolean[] = []
+	const numBytes = Math.ceil(length / 8)
+
+	for (let i = 0; i < numBytes; i++) {
+		const byte = reader.readUInt8()
+		for (let j = 0; j < 8 && flags.length < length; j++) {
+			flags.push((byte & (1 << j)) !== 0)
+		}
+	}
+
+	return flags
+}
+
+function writeChangeFlags(writer: Writer, flags: boolean[]): void {
+	const numBytes = Math.ceil(flags.length / 8)
+
+	for (let i = 0; i < numBytes; i++) {
+		let byte = 0
+		for (let j = 0; j < 8; j++) {
+			const idx = i * 8 + j
+			if (idx < flags.length && flags[idx]) {
+				byte |= 1 << j
+			}
+		}
+		writer.writeUInt8(byte)
 	}
 }
