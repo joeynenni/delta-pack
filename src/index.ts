@@ -1,4 +1,4 @@
-export { Schema, Writer, Reader, optional } from './types'
-export { Int, Float, String, Boolean } from './primitives'
-export { createArray, createObject } from './composite'
-export { validatePrimitive, validateArrayItems, validateObjectProperties } from './utils'
+export { createArray } from './schemas/array'
+export { createObject } from './schemas/object'
+export { optional } from './schemas/optional'
+export { Int, String, Float, Boolean } from './schemas/primitive'
