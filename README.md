@@ -52,8 +52,7 @@ You can create more complex, nested schemas using `createObject` and `createArra
 ### Example: Defining a Game State
 
 ```typescript
-import { Boolean, Float, Int, String } from 'delta-pack'
-import { createArray, createObject } from 'delta-pack'
+import { Boolean, Float, Int, String, createObject, createArray } from 'delta-pack'
 
 // Define a nested player schema
 const playerSchema = createObject({
@@ -218,17 +217,17 @@ console.log(errors) // e.g., ["Invalid string: 123", "Invalid int: 100"]
 ### Schema Interface
 The `Schema<T>` interface represents a schema for a given data type `T` and provides methods for encoding, decoding, and validating data.
 
-- **validate(value: unknown): string[]**  
+- **validate(value: T | undefined): string[]**  
   Validates the provided value against the schema. Returns an array of error messages if validation fails (or an empty array if valid).
 
 - **encode(value: T): Uint8Array**  
   Encodes the entire state of a value into a binary `Uint8Array`.
 
-- **decode(binary: Uint8Array, prevState?: T): T**  
+- **decode(binary: Uint8Array | ArrayBuffer, prevState?: T): T**  
   Decodes a binary `Uint8Array` into a value of type `T`. If the binary data represents a delta update, the previous state must be supplied so the changes can be merged.
 
-- **encodeDiff(prev: T, next: T): Uint8Array**  
-  Encodes only the differences between a previous state and a new state into a binary delta. This operation transmits only the modified fields.
+- **encodeDiff(prev: T | undefined, next: T | typeof NO_DIFF | undefined): Uint8Array**  
+  Encodes only the differences between a previous state and a new state into a binary delta. This operation allows you to transmit only the modified fields.
 
 ### createPrimitive
 Creates a primitive schema for basic types (such as numbers, strings, booleans). This function abstracts the low-level binary encoding/decoding details and provides built-in validation.
