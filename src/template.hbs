@@ -1,412 +1,788 @@
 import { Writer as _Writer, Reader as _Reader } from "bin-serde";
+import { DebugLogger } from "../../utils/debug";
 
-const _NO_DIFF = Symbol("NODIFF");
-type _DeepPartial<T> = T extends string | number | boolean | undefined
-  ? T
-  : T extends Array<infer ArrayType>
-  ? Array<_DeepPartial<ArrayType> | typeof _NO_DIFF> | typeof _NO_DIFF
-  : T extends { type: string; val: any }
-  ? { type: T["type"]; val: _DeepPartial<T["val"] | typeof _NO_DIFF> }
-  : { [K in keyof T]: _DeepPartial<T[K]> | typeof _NO_DIFF };
+export interface IWriter {
+  new(): IWriter
+	writeUInt8(val: number): IWriter
+	writeUInt32(val: number): IWriter
+	writeUInt64(val: bigint): IWriter
+	writeUVarint(val: number): IWriter
+	writeVarint(val: number): IWriter
+	writeFloat(val: number): IWriter
+	writeBits(bits: boolean[]): IWriter
+	writeString(val: string): IWriter
+	writeBuffer(buf: Uint8Array): IWriter
+	toBuffer(): Uint8Array
+	ensureSize(size: number): void
+}
 
-class _Tracker {
-  constructor(private bits: boolean[] = [], private idx = 0) {}
-  push(val: boolean) {
+export interface IReader {
+	new(binary?: Uint8Array): IReader;
+	readUInt8(): number
+	readUInt32(): number
+	readUInt64(): bigint
+	readUVarint(): number
+	readVarint(): number
+	readFloat(): number
+	readBits(numBits: number): boolean[]
+	readString(): string
+	readBuffer(numBytes: number): Uint8Array
+	remaining(): number
+}
+
+const Writer = _Writer as unknown as IWriter;
+const Reader = _Reader as unknown as IReader;
+
+export const NO_DIFF: unique symbol = Symbol("NO_DIFF");
+
+export type DeepPartial<T> = T extends object
+  ? { [K in keyof T]?: DeepPartial<T[K]> | typeof NO_DIFF }
+  : T;
+
+export class Tracker {
+  private bits: boolean[] = [];
+  private idx = 0;
+  
+  push(val: boolean): void {
     this.bits.push(val);
   }
-  next() {
-    return this.bits[this.idx++];
+  
+  next(): boolean {
+    const val = this.bits[this.idx++];
+    return val;
+  }
+  
+  getBits(): boolean[] { return [...this.bits]; }
+  getIndex(): number { return this.idx; }
+  
+  serialize(buf: IWriter) {
+    buf.writeUInt8(this.bits.length);
+    buf.writeBits(this.bits);
+  }
+  
+  static deserialize(buf: IReader): Tracker {
+    const tracker = new Tracker();
+    const length = buf.readUInt8();
+    tracker.bits = buf.readBits(length);
+    return tracker;
   }
 }
 
-{{#each this}}
-{{> renderExportArg}}
-{{/each}}
-
-{{#each this}}
-{{> renderTypeValue}}
-{{/each}}
-
-{{#*inline "renderExportArg"}}
-{{#if (eq type "enum")}}
-export enum {{@key}} {
-  {{#each options}}
-  {{this}},
-  {{/each}}
-}
-{{else}}
-export type {{@key}} = {{> renderTypeArg}};
-{{/if}}
-{{/inline}}
-{{#*inline "renderTypeArg"}}
-{{#if (eq type "reference")}}
-{{reference}}
-{{~else if (eq type "object")}}
-{
-  {{#each properties}}
-  {{@key}}{{#if (eq modifier "optional")}}?{{/if}}: {{> renderTypeArg}}{{#if (eq modifier "array")}}[]{{/if}};
-  {{/each}}
-}
-{{~else if (eq type "union")}}
-{{#each options}}{{#unless @first}} | {{/unless}}{ type: "{{> renderTypeArg}}"; val: {{> renderTypeArg}} }{{/each}}
-{{~else if (eq type "int")}}
-number
-{{~else if (eq type "float")}}
-number
-{{~else if (eq type "string")}}
-string
-{{~else if (eq type "boolean")}}
-boolean
-{{~/if}}
-{{~/inline}}
-{{#*inline "renderTypeValue"}}
-{{#if (eq type "object")}}
-export const {{@key}} = {
-  default(): {{@key}} {
-    return {
-      {{#each properties}}
-      {{@key}}: {{> renderDefault}},
-      {{/each}}
-    };
-  },
-  validate(obj: {{@key}}) {
-    if (typeof obj !== "object") {
-      return [`Invalid {{@key}} object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    {{#each properties}}
-    validationErrors = {{> renderValidate arg=@key}};
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: {{@../key}}.{{@key}}");
-    }
-    {{/each}}
-
-    return validationErrors;
-  },
-  encode(obj: {{@key}}, buf: _Writer = new _Writer()) {
-    {{#each properties}}
-    {{> renderEncodeArg arg=@key}};
-    {{/each}}
-    return buf;
-  },
-  encodeDiff(obj: _DeepPartial<{{@key}}>, tracker: _Tracker, buf: _Writer = new _Writer()) {
-    {{#each properties}}
-    tracker.push(obj.{{@key}} !== _NO_DIFF);
-    if (obj.{{@key}} !== _NO_DIFF) {
-      {{> renderEncodeDiffArg arg=@key}};
-    }
-    {{/each}}
-    return buf;
-  },
-  decode(buf: _Reader): {{@key}} {
-    const sb = buf;
-    return {
-      {{#each properties}}
-      {{@key}}: {{> renderDecodeArg}},
-      {{/each}}
-    };
-  },
-  decodeDiff(buf: _Reader, tracker: _Tracker): _DeepPartial<{{@key}}> {
-    const sb = buf;
-    return {
-      {{#each properties}}
-      {{@key}}: tracker.next() ? {{> renderDecodeDiffArg}} : _NO_DIFF,
-      {{/each}}
-    };
-  },
-};
-{{else if (eq type "union")}}
-export const {{@key}} = {
-  default(): {{@key}} {
-    return {
-      {{#each options}}
-      {{#if @first}}
-      type: "{{reference}}",
-      val: {{> renderDefault}},
-      {{/if}}
-      {{/each}}
-    };
-  },
-  values() {
-    return [{{#each options}}"{{reference}}"{{#unless @last}}, {{/unless}}{{/each}}];
-  },
-  validate(obj: {{@key}}) {
-    {{#each options}}
-    {{#unless @first}}else {{/unless}}if (obj.type === "{{reference}}") {
-      const validationErrors = {{> renderValidate arg="val"}};
-      if (validationErrors.length > 0) {
-        return validationErrors.concat("Invalid union: {{@../key}}");
-      }
-      return validationErrors;
-    }
-    {{/each}}
-    else {
-      return [`Invalid {{@key}} union: ${obj}`];
-    }
-  },
-  encode(obj: {{@key}}, buf: _Writer = new _Writer()) {
-    {{#each options}}
-    {{#unless @first}}else {{/unless}}if (obj.type === "{{reference}}") {
-      writeUInt8(buf, {{@index}});
-      const x = obj.val;
-      {{> renderEncodeArg}};
-    }
-    {{/each}}
-    return buf;
-  },
-  encodeDiff(obj: _DeepPartial<{{@key}}>, tracker: _Tracker, buf: _Writer = new _Writer()) {
-    {{#each options}}
-    {{#unless @first}}else {{/unless}}if (obj.type === "{{reference}}") {
-      writeUInt8(buf, {{@index}});
-      writeBoolean(buf, obj.val !== _NO_DIFF);
-      if (obj.val !== _NO_DIFF) {
-        const x = obj.val;
-        {{> renderEncodeDiffArg}};
-      }
-    }
-    {{/each}}
-    return buf;
-  },
-  decode(sb: _Reader): {{@key}} {
-    const type = parseUInt8(sb);
-    {{#each options}}
-    {{#unless @first}}else {{/unless}}if (type === {{@index}}) {
-      return { type: "{{reference}}", val: {{> renderDecodeArg}} };
-    }
-    {{/each}}
-    throw new Error("Invalid union");
-  },
-  decodeDiff(sb: _Reader, tracker: _Tracker): _DeepPartial<{{@key}}> {
-    const type = parseUInt8(sb);
-    {{#each options}}
-    {{#unless @first}}else {{/unless}}if (type === {{@index}}) {
-      return { type: "{{reference}}", val: parseBoolean(sb) ? {{> renderDecodeDiffArg}} : _NO_DIFF };
-    }
-    {{/each}}
-    throw new Error("Invalid union");
-  },
-}
-{{/if}}
-{{/inline}}
-{{#*inline "renderDefault"}}
-{{#if (eq modifier "array")}}
-[]
-{{~else if (eq modifier "optional")}}
-undefined
-{{~else if (eq type "reference")}}
-{{> renderDefault (lookup @root reference) typeString=reference}}
-{{~else if (eq type "string")}}
-""
-{{~else if (eq type "int")}}
-0
-{{~else if (eq type "float")}}
-0.0
-{{~else if (eq type "boolean")}}
-false
-{{~else if (eq type "enum")}}
-0
-{{~else}}
-{{typeString}}.default()
-{{/if}}
-{{/inline}}
-{{#*inline "renderValidate"}}
-{{#if (eq modifier "array")}}
-validateArray({{#if arg}}obj.{{arg}}{{else}}x{{/if}}, (x) => {{> renderValidate modifier=null arg=null}})
-{{~else if (eq modifier "optional")}}
-validateOptional({{#if arg}}obj.{{arg}}{{else}}x{{/if}}, (x) => {{> renderValidate modifier=null arg=null}})
-{{~else if (eq type "reference")}}
-{{> renderValidate (lookup @root reference) arg=arg typeString=reference}}
-{{~else if (eq type "int")}}
-validatePrimitive(Number.isInteger({{#if arg}}obj.{{arg}}{{else}}x{{/if}}), `Invalid int: ${ {{#if arg}}obj.{{arg}}{{else}}x{{/if}} }`)
-{{~else if (eq type "float")}}
-validatePrimitive(typeof {{#if arg}}obj.{{arg}}{{else}}x{{/if}} === "number", `Invalid float: ${ {{#if arg}}obj.{{arg}}{{else}}x{{/if}} }`)
-{{~else if (eq type "string")}}
-validatePrimitive(typeof {{#if arg}}obj.{{arg}}{{else}}x{{/if}} === "string", `Invalid string: ${ {{#if arg}}obj.{{arg}}{{else}}x{{/if}} }`)
-{{~else if (eq type "boolean")}}
-validatePrimitive(typeof {{#if arg}}obj.{{arg}}{{else}}x{{/if}} === "boolean", `Invalid boolean: ${ {{#if arg}}obj.{{arg}}{{else}}x{{/if}} }`)
-{{~else if (eq type "enum")}}
-validatePrimitive({{#if arg}}obj.{{arg}}{{else}}x{{/if}} in {{typeString}}, `Invalid {{typeString}}: ${ {{#if arg}}obj.{{arg}}{{else}}x{{/if}} }`)
-{{~else if (eq type "object")}}
-{{typeString}}.validate({{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "union")}}
-{{typeString}}.validate({{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{/if}}
-{{/inline}}
-{{#*inline "renderEncodeArg"}}
-{{#if (eq modifier "array")}}
-writeArray(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}}, (x) => {{> renderEncodeArg modifier=null arg=null}})
-{{~else if (eq modifier "optional")}}
-writeOptional(buf, obj.{{arg}}, (x) => {{> renderEncodeArg modifier=null arg=null}})
-{{~else if (eq type "reference")}}
-{{> renderEncodeArg (lookup @root reference) arg=arg typeString=reference}}
-{{~else if (eq type "enum")}}
-writeUInt8(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "int")}}
-writeInt(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "float")}}
-writeFloat(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "string")}}
-writeString(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "boolean")}}
-writeBoolean(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else}}
-{{typeString}}.encode({{#if arg}}obj.{{arg}}{{else}}x{{/if}}, buf)
-{{~/if}}
-{{/inline}}
-{{#*inline "renderEncodeDiffArg"}}
-{{#if (eq modifier "array")}}
-writeArrayDiff(buf, tracker, {{#if arg}}obj.{{arg}}{{else}}x{{/if}}, (x) => {{> renderEncodeDiffArg modifier=null arg=null}})
-{{~else if (eq modifier "optional")}}
-writeOptional(buf, obj.{{arg}}, (x) => {{> renderEncodeDiffArg modifier=null arg=null}})
-{{~else if (eq type "reference")}}
-{{> renderEncodeDiffArg (lookup @root reference) arg=arg typeString=reference}}
-{{~else if (eq type "enum")}}
-writeUInt8(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "int")}}
-writeInt(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "float")}}
-writeFloat(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "string")}}
-writeString(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else if (eq type "boolean")}}
-writeBoolean(buf, {{#if arg}}obj.{{arg}}{{else}}x{{/if}})
-{{~else}}
-{{typeString}}.encodeDiff({{#if arg}}obj.{{arg}}{{else}}x{{/if}}, tracker, buf)
-{{~/if}}
-{{/inline}}
-{{#*inline "renderDecodeArg"}}
-{{#if (eq modifier "array")}}
-parseArray(sb, () => {{> renderDecodeArg modifier=null arg=null}})
-{{~else if (eq modifier "optional")}}
-parseOptional(sb, () => {{> renderDecodeArg modifier=null arg=null}})
-{{~else if (eq type "reference")}}
-{{> renderDecodeArg (lookup @root reference) arg=arg typeString=reference}}
-{{~else if (eq type "enum")}}
-parseUInt8(sb)
-{{~else if (eq type "int")}}
-parseInt(sb)
-{{~else if (eq type "float")}}
-parseFloat(sb)
-{{~else if (eq type "string")}}
-parseString(sb)
-{{~else if (eq type "boolean")}}
-parseBoolean(sb)
-{{~else}}
-{{typeString}}.decode(sb)
-{{~/if}}
-{{/inline}}
-{{#*inline "renderDecodeDiffArg"}}
-{{#if (eq modifier "array")}}
-parseArrayDiff(sb, tracker, () => {{> renderDecodeDiffArg modifier=null arg=null}})
-{{~else if (eq modifier "optional")}}
-parseOptional(sb, () => {{> renderDecodeDiffArg modifier=null arg=null}})
-{{~else if (eq type "reference")}}
-{{> renderDecodeDiffArg (lookup @root reference) arg=arg typeString=reference}}
-{{~else if (eq type "enum")}}
-parseUInt8(sb)
-{{~else if (eq type "int")}}
-parseInt(sb)
-{{~else if (eq type "float")}}
-parseFloat(sb)
-{{~else if (eq type "string")}}
-parseString(sb)
-{{~else if (eq type "boolean")}}
-parseBoolean(sb)
-{{~else}}
-{{typeString}}.decodeDiff(sb, tracker)
-{{~/if}}
-{{/inline}}
-function validatePrimitive(isValid: boolean, errorMessage: string) {
-  return isValid ? [] : [errorMessage];
-}
-function validateOptional<T>(val: T | undefined, innerValidate: (x: T) => string[]) {
-  if (val !== undefined) {
-    return innerValidate(val);
-  }
-  return [];
-}
-function validateArray<T>(arr: T[], innerValidate: (x: T) => string[]) {
-  if (!Array.isArray(arr)) {
-    return ["Invalid array: " + arr];
-  }
-  for (let i = 0; i < arr.length; i++) {
-    const validationErrors = innerValidate(arr[i]);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid array item at index " + i);
-    }
-  }
-  return [];
+export function writeArray<T>(buf: IWriter, arr: T[], writer: (item: T) => void): void {
+  buf.writeVarint(arr.length);
+  arr.forEach(writer);
 }
 
-function writeUInt8(buf: _Writer, x: number) {
-  buf.writeUInt8(x);
-}
-function writeBoolean(buf: _Writer, x: boolean) {
-  buf.writeUInt8(x ? 1 : 0);
-}
-function writeInt(buf: _Writer, x: number) {
-  buf.writeVarint(x);
-}
-function writeFloat(buf: _Writer, x: number) {
-  buf.writeFloat(x);
-}
-function writeString(buf: _Writer, x: string) {
-  buf.writeString(x);
-}
-function writeOptional<T>(buf: _Writer, x: T | undefined, innerWrite: (x: T) => void) {
-  writeBoolean(buf, x !== undefined);
-  if (x !== undefined) {
-    innerWrite(x);
-  }
-}
-function writeArray<T>(buf: _Writer, x: T[], innerWrite: (x: T) => void) {
-  buf.writeUVarint(x.length);
-  for (const val of x) {
-    innerWrite(val);
-  }
-}
-function writeArrayDiff<T>(buf: _Writer, tracker: _Tracker, x: (T | typeof _NO_DIFF)[], innerWrite: (x: T) => void) {
-  buf.writeUVarint(x.length);
-  x.forEach((val) => {
-    tracker.push(val !== _NO_DIFF);
-    if (val !== _NO_DIFF) {
-      innerWrite(val);
-    }
-  });
+export function writeInt(buf: IWriter, val: number): void {
+  buf.writeVarint(val);
 }
 
-function parseUInt8(buf: _Reader): number {
-  return buf.readUInt8();
+export function writeFloat(buf: IWriter, val: number): void {
+  buf.writeFloat(val);
 }
-function parseBoolean(buf: _Reader): boolean {
-  return buf.readUInt8() > 0;
+
+export function writeString(buf: IWriter, val: string): void {
+  buf.writeString(val);
 }
-function parseInt(buf: _Reader): number {
+
+export function writeBoolean(buf: IWriter, val: boolean): void {
+  buf.writeUInt8(val ? 1 : 0);
+}
+
+export function readArray<T>(buf: IReader, reader: () => T): T[] {
+  const length = buf.readVarint();
+  return Array.from({ length }, () => reader());
+}
+
+export function readInt(buf: IReader): number {
   return buf.readVarint();
 }
-function parseFloat(buf: _Reader): number {
+
+export function readFloat(buf: IReader): number {
   return buf.readFloat();
 }
-function parseString(buf: _Reader): string {
+
+export function readString(buf: IReader): string {
   return buf.readString();
 }
-function parseOptional<T>(buf: _Reader, innerParse: (buf: _Reader) => T): T | undefined {
-  return parseBoolean(buf) ? innerParse(buf) : undefined;
+
+export function readBoolean(buf: IReader): boolean {
+  return buf.readUInt8() > 0;
 }
-function parseArray<T>(buf: _Reader, innerParse: () => T): T[] {
-  const len = buf.readUVarint();
-  const arr: T[] = [];
-  for (let i = 0; i < len; i++) {
-    arr.push(innerParse());
+
+export function patchArray<T>(
+  arr: T[],
+  patch: typeof NO_DIFF | any[],
+  innerPatch: (a: T, b: DeepPartial<T>) => T
+): T[] {
+  DebugLogger.log('patchArray input:', { arr, patch, testName: DebugLogger.currentTest });
+
+  if (patch === NO_DIFF) {
+    return arr;
   }
+
+  patch.forEach((patchItem, i) => {
+    if (patchItem !== NO_DIFF) {
+      if (i >= arr.length) {
+        arr.push(patchItem as T);
+        DebugLogger.log('patchArray item added:', {
+          index: i,
+          item: patchItem,
+          testName: DebugLogger.currentTest,
+        });
+      } else {
+        arr[i] = innerPatch(arr[i], patchItem);
+        DebugLogger.log('patchArray item patched:', {
+          index: i,
+          originalItem: arr[i],
+          patchItem,
+          testName: DebugLogger.currentTest,
+        });
+      }
+    } else {
+      DebugLogger.log('patchArray item unchanged:', {
+        index: i,
+        item: arr[i],
+        testName: DebugLogger.currentTest,
+      });
+    }
+  });
+
+  // Optionally handle items beyond the patch length
+  // For now, we retain original items
+
+  DebugLogger.log('patchArray result:', {
+    patchedArray: arr,
+    testName: DebugLogger.currentTest,
+  });
+
   return arr;
 }
-function parseArrayDiff<T>(buf: _Reader, tracker: _Tracker, innerParse: () => T): (T | typeof _NO_DIFF)[] {
-  const len = buf.readUVarint();
-  const arr: (T | typeof _NO_DIFF)[] = [];
-  for (let i = 0; i < len; i++) {
-    arr.push(tracker.next() ? innerParse() : _NO_DIFF);
+
+export function patchOptional<T>(obj: T | undefined, patch: any, innerPatch: (a: T, b: DeepPartial<T>) => T): T | undefined {
+  if (patch === undefined) {
+    return undefined;
+  } else if (obj === undefined) {
+    return patch as T;
+  } else {
+    return innerPatch(obj, patch);
   }
-  return arr;
 }
+
+export function diffPrimitive<T>(current: T, prev: T): DeepPartial<T> | typeof NO_DIFF {
+  const isEqual = Object.is(current, prev);
+  DebugLogger.log('diffPrimitive comparison:', {
+    current,
+    prev,
+    isEqual,
+    testName: DebugLogger.currentTest,
+  });
+  return isEqual ? NO_DIFF : current;
+}
+
+export function diffOptional<T>(
+  a: T | undefined,
+  b: T | undefined,
+  innerDiff: (x: T, y: T) => DeepPartial<T> | typeof NO_DIFF
+) {
+  if (a !== undefined && b !== undefined) {
+    return innerDiff(a, b);
+  } else if (a !== undefined || b !== undefined) {
+    return b;
+  } else {
+    return NO_DIFF;
+  }
+}
+
+export function diffArray<T>(
+  a: T[],
+  b: T[],
+  diffFn: (a: T, b: T) => any
+): any {
+  DebugLogger.log('diffArray input:', {
+    a,
+    b,
+    aLength: a.length,
+    bLength: b.length,
+    testName: DebugLogger.currentTest,
+  });
+
+  if (a === b) return NO_DIFF;
+
+  const result = [];
+  const maxLength = Math.max(a.length, b.length);
+
+  for (let i = 0; i < maxLength; i++) {
+    const valA = a[i];
+    const valB = b[i];
+
+    if (i >= a.length) {
+      // New item added in b
+      result.push(valB);
+      DebugLogger.log('diffArray new item added:', {
+        index: i,
+        value: valB,
+        testName: DebugLogger.currentTest,
+      });
+    } else if (i >= b.length) {
+      // Item removed in b (optional handling)
+      result.push(NO_DIFF);
+    } else {
+      // Compute diff for existing item
+      const diff = diffFn(valA, valB);
+      result.push(diff);
+      DebugLogger.log('diffArray element comparison:', {
+        index: i,
+        itemA: valA,
+        itemB: valB,
+        diff,
+        testName: DebugLogger.currentTest,
+      });
+    }
+  }
+
+  const hasNoDiffs = result.every((item) => item === NO_DIFF);
+  const isNoDiff = hasNoDiffs && a.length === b.length;
+
+  DebugLogger.log('diffArray result:', {
+    result,
+    hasNoDiffs,
+    isNoDiff,
+    testName: DebugLogger.currentTest,
+  });
+
+  return isNoDiff ? NO_DIFF : result;
+}
+
+export function diffObj<T extends object>(a: T, b: T, diffFn: (x: any, y: any) => any): DeepPartial<T> | typeof NO_DIFF {
+  DebugLogger.log('diffObj start:', {
+    a,
+    b,
+    testName: DebugLogger.currentTest,
+    callStack: new Error().stack?.split('\n').slice(1).join('\n')
+  });
+
+  const keys = Object.keys(a) as (keyof T)[];
+  const diffs = {} as any;
+  let hasChanges = false;
+
+  keys.forEach(key => {
+    const diff = diffFn(a[key], b[key]);
+    DebugLogger.log('diffObj key comparison:', {
+      key,
+      valueA: a[key],
+      valueB: b[key],
+      diff,
+      isDiff: diff !== NO_DIFF,
+      testName: DebugLogger.currentTest
+    });
+    
+    if (diff !== NO_DIFF) {
+      diffs[key] = diff;
+      hasChanges = true;
+    }
+  });
+
+  const result = hasChanges ? diffs : NO_DIFF;
+  DebugLogger.log('diffObj result:', {
+    hasChanges,
+    result,
+    testName: DebugLogger.currentTest
+  });
+  
+  return result;
+}
+
+export function patch<T extends object>(obj: T, patch: DeepPartial<T>): T {
+  DebugLogger.log('patch start:', {
+    original: obj,
+    patch,
+    testName: DebugLogger.currentTest
+  });
+
+  {{#each properties~}}
+  if (patch.{{@key}} !== NO_DIFF) {
+    DebugLogger.log('patch property {{@key}}:', {
+      propertyName: '{{@key}}',
+      oldValue: obj.{{@key}},
+      newValue: patch.{{@key}},
+      testName: DebugLogger.currentTest
+    });
+
+    {{#if (eq modifier "array")~}}
+    obj.{{@key}} = patchArray(
+      obj.{{@key}},
+      patch.{{@key}} as any[],
+      {{#if (eq type "reference")}}
+      (a, b) => {{reference}}.patch(a, b)
+      {{else}}
+      (_, b) => b
+      {{/if}}
+    );
+    {{else if (eq type "reference")~}}
+    obj.{{@key}} = {{reference}}.patch(obj.{{@key}}, patch.{{@key}} as any);
+    {{else}}
+    obj.{{@key}} = patch.{{@key}} as any;
+    {{/if}}
+  }
+  {{~/each}}
+
+  DebugLogger.log('patch complete:', {
+    result: obj,
+    testName: DebugLogger.currentTest
+  });
+
+  return obj;
+}
+
+{{#each this}}
+export type {{@key}} = {
+  {{#each properties~}}
+  {{@key}}: {{#if (eq modifier "array")~}}
+  {{reference}}[]
+  {{~else if (eq type "reference")~}}
+  {{reference}}
+  {{~else if (eq type "int")~}}
+  number
+  {{~else if (eq type "float")~}}
+  number
+  {{~else if (eq type "string")~}}
+  string
+  {{~else if (eq type "boolean")~}}
+  boolean
+  {{~/if}}{{#if (eq modifier "optional")}} | undefined{{/if}}{{#unless @last}},{{/unless}}
+  {{~/each}}
+};
+
+export const {{@key}} = {
+  // Public API methods
+  encode(current: {{@key}}, prev?: {{@key}}): Uint8Array {
+    DebugLogger.log('encode start:', {
+      current,
+      prev,
+      hasPrev: !!prev,
+      testName: DebugLogger.currentTest
+    });
+
+    const writer = new Writer() as unknown as IWriter;
+    const tracker = new Tracker();
+    
+    if (prev) {
+      const diff = this.computeDiff(current, prev);
+      DebugLogger.log('encode diff computed:', {
+        diff,
+        testName: DebugLogger.currentTest
+      });
+      
+      this.encodeDiff(diff, tracker, writer);
+      tracker.serialize(writer);
+    } else {
+      this.encodeInternal(current, writer);
+    }
+
+    const binary = writer.toBuffer();
+    DebugLogger.log('encode complete:', {
+      binarySize: binary.length,
+      trackerBits: prev ? tracker.getBits() : [],
+      testName: DebugLogger.currentTest
+    });
+    
+    return binary;
+  },
+
+  decode(binary: Uint8Array | ArrayBuffer, prevState?: {{@key}}): {{@key}} {
+    if (binary instanceof ArrayBuffer) {
+      binary = new Uint8Array(binary);
+    }
+    const buf = new Reader(binary);
+    if (prevState) {
+      const tracker = Tracker.deserialize(buf);
+      const diff = this.decodeDiff(buf, tracker);
+      return this.patch(prevState, diff);
+    }
+    return this.decodeInternal(buf);
+  },
+
+  // Internal methods needed to support encode/decode
+  encodeInternal(obj: {{@key}}, buf: IWriter): void {
+    {{#each properties~}}
+    {{#if (eq modifier "array")~}}
+    writeArray(buf, obj.{{@key}}, item => {{reference}}.encodeInternal(item, buf));
+    {{else}}
+    {{> encodeProperty}}
+    {{/if}}
+    {{~/each}}
+  },
+
+  decodeInternal(buf: IReader): {{@key}} {
+    return {
+      {{#each properties~}}
+      {{@key}}: {{#if (eq modifier "array")~}}
+      readArray(buf, () => {{reference}}.decodeInternal(buf))
+      {{~else}}
+      {{> decodeProperty}}
+      {{~/if}}{{#unless @last}},{{/unless}}
+      {{~/each}}
+    };
+  },
+
+  encodeDiff(diff: DeepPartial<{{@key}}>, tracker: Tracker, buf: IWriter): void {
+    DebugLogger.log('encodeDiff start:', {
+      diff,
+      testName: DebugLogger.currentTest,
+      trackerState: {
+        bits: tracker.getBits(),
+        index: tracker.getIndex(),
+        totalBits: tracker.getBits().length
+      }
+    });
+
+    {{#each properties~}}
+    const has{{@key}} = diff.{{@key}} !== NO_DIFF;
+    tracker.push(has{{@key}});
+    
+    DebugLogger.log('encodeDiff property {{@key}}:', {
+      propertyName: '{{@key}}',
+      hasValue: has{{@key}},
+      value: diff.{{@key}},
+      valueType: typeof diff.{{@key}},
+      isNoDiff: diff.{{@key}} === NO_DIFF,
+      trackerBits: tracker.getBits().slice(Math.max(0, tracker.getIndex() - 5)),
+      testName: DebugLogger.currentTest
+    });
+
+    if (has{{@key}}) {
+      {{#if (eq modifier "array")~}}
+      if (Array.isArray(diff.{{@key}})) {
+        const arr = diff.{{@key}} as any[];
+        buf.writeVarint(arr.length);
+        DebugLogger.log('encodeDiff array {{@key}}:', {
+          array: arr,
+          length: arr.length,
+          bufferSize: buf.toBuffer().length,
+          testName: DebugLogger.currentTest
+        });
+        arr.forEach(item => {
+          if (item === NO_DIFF) {
+            tracker.push(false);
+          } else {
+            tracker.push(true);
+            {{reference}}.encodeDiff(item, tracker, buf);
+          }
+        });
+      }
+      {{~else}}
+      {{> encodeDiffProperty}}
+      {{~/if}}
+    }
+    {{~/each}}
+
+    DebugLogger.log('encodeDiff complete:', {
+      finalTrackerState: {
+        bits: tracker.getBits(),
+        index: tracker.getIndex()
+      },
+      finalBufferSize: buf.toBuffer().length,
+      testName: DebugLogger.currentTest
+    });
+  },
+
+  decodeDiff(buf: IReader, tracker: Tracker): DeepPartial<{{@key}}> {
+    const diff: DeepPartial<{{@key}}> = {};
+    
+    DebugLogger.log('decodeDiff start:', {
+      remainingBytes: buf.remaining(),
+      trackerState: {
+        bits: tracker.getBits(),
+        index: tracker.getIndex(),
+        totalBits: tracker.getBits().length
+      },
+      testName: DebugLogger.currentTest
+    });
+
+    {{#each properties~}}
+    const has{{@key}} = tracker.next();
+    
+    DebugLogger.log('decodeDiff property {{@key}}:', {
+      has: has{{@key}},
+      trackerIndex: tracker.getIndex(),
+      remainingBytes: buf.remaining(),
+      testName: DebugLogger.currentTest
+    });
+
+    if (has{{@key}}) {
+      {{#if (eq modifier "array")~}}
+      const length = buf.readVarint();
+      DebugLogger.log('decodeDiff array {{@key}}:', {
+        length,
+        remainingBytes: buf.remaining(),
+        trackerBits: tracker.getBits().slice(tracker.getIndex() - 1),
+        testName: DebugLogger.currentTest
+      });
+      {{~/if}}
+      diff.{{@key}} = {{> decodeDiffProperty}};
+    } else {
+      diff.{{@key}} = NO_DIFF;
+    }
+    {{~/each}}
+
+    return diff;
+  },
+
+  computeDiff(current: {{@key}}, prev: {{@key}}): DeepPartial<{{@key}}> | typeof NO_DIFF {
+    DebugLogger.log('Computing diff for {{@key}}:', {
+      current,
+      prev,
+      testName: DebugLogger.currentTest
+    });
+    
+    const result = diffObj({
+      {{#each properties~}}
+      {{@key}}: (() => {
+        const currentVal = current.{{@key}};
+        const prevVal = prev.{{@key}};
+        DebugLogger.log('Comparing {{@key}}:', {
+          current: currentVal,
+          prev: prevVal
+        });
+        
+        {{#if (eq modifier "array")~}}
+          const arrayDiff = diffArray(
+            currentVal, 
+            prevVal, 
+            {{#if (eq type "reference")}}
+            (a, b) => {{reference}}.computeDiff(a, b)
+            {{else}}
+            (a, b) => diffPrimitive(a, b)
+            {{/if}}
+          );
+          DebugLogger.log('Array diff for {{@key}}:', { diff: arrayDiff });
+          return arrayDiff;
+        {{else if (eq type "reference")~}}
+          {{#if (eq modifier "optional")}}
+          const optionalDiff = diffOptional(
+            currentVal,
+            prevVal,
+            (a, b) => {{reference}}.computeDiff(a, b)
+          );
+          DebugLogger.log('Optional diff for {{@key}}:', { diff: optionalDiff });
+          return optionalDiff;
+          {{~else}}
+          const refDiff = {{reference}}.computeDiff(currentVal, prevVal);
+          DebugLogger.log('Reference diff for {{@key}}:', { diff: refDiff });
+          return refDiff;
+          {{~/if}}
+        {{else}}
+          const primitiveDiff = diffPrimitive(currentVal, prevVal);
+          DebugLogger.log('Primitive diff for {{@key}}:', { diff: primitiveDiff });
+          return primitiveDiff;
+        {{/if}}
+      })(),
+      {{~/each}}
+    });
+
+    DebugLogger.log('Final diff result for {{@key}}:', { result });
+    return result as DeepPartial<{{@key}}> | typeof NO_DIFF;
+  },
+
+  patch(base: {{@key}}, diff: DeepPartial<{{@key}}>): {{@key}} {
+    DebugLogger.log('Patching {{@key}}:', {
+      base,
+      diff,
+      testName: DebugLogger.currentTest
+    });
+    
+    {{#each properties~}}
+    if (diff.{{@key}} !== NO_DIFF) {
+      DebugLogger.log('Patching property {{@key}}:', {
+        before: base.{{@key}},
+        diff: diff.{{@key}},
+        testName: DebugLogger.currentTest
+      });
+      
+      {{#if (eq modifier "array")~}}
+      base.{{@key}} = patchArray(
+        base.{{@key}},
+        diff.{{@key}} as any[],
+        {{#if (eq type "reference")}}
+        (a, b) => {{reference}}.patch(a, b)
+        {{else}}
+        (_, b) => b
+        {{/if}}
+      );
+      {{~else if (eq type "reference")~}}
+      {{#if (eq modifier "optional")}}
+      base.{{@key}} = patchOptional(
+        base.{{@key}},
+        diff.{{@key}},
+        (a, b) => {{reference}}.patch(a, b)
+      );
+      {{~else}}
+      base.{{@key}} = diff.{{@key}} === undefined 
+        ? base.{{@key}}
+        : (typeof diff.{{@key}} === 'object' && diff.{{@key}} !== null)
+          ? {{reference}}.patch(base.{{@key}}, diff.{{@key}} as any)
+          : diff.{{@key}} as {{reference}};
+      {{~/if}}
+      {{~else}}
+      base.{{@key}} = diff.{{@key}} as {{#if (eq type "int")}}number{{else if (eq type "float")}}number{{else if (eq type "string")}}string{{else if (eq type "boolean")}}boolean{{/if}};
+      {{~/if}}
+      
+      DebugLogger.log('After patching {{@key}}:', {
+        after: base.{{@key}},
+        testName: DebugLogger.currentTest
+      });
+    }
+    {{~/each}}
+    
+    return base;
+  }
+};
+{{/each}}
+
+{{!-- Partial: typeDefinition --}}
+{{#*inline "typeDefinition"}}
+{{#if (eq type "object")}}
+{
+{{#each properties~}}
+  {{@key}}{{#if (eq modifier "optional")}}?{{/if}}: {{#if (eq modifier "array")}}Array<{{> typeDefinition this}}>{{else}}{{> typeDefinition this}}{{/if}};
+{{~/each}}
+}
+{{else if (eq type "reference")}}
+{{name}}
+{{else if (eq type "int")}}
+number
+{{else if (eq type "float")}}
+number
+{{else if (eq type "string")}}
+string
+{{else if (eq type "boolean")}}
+boolean
+{{/if}}
+{{/inline}}
+
+{{!-- Partial: encodeProperty --}}
+{{#*inline "encodeProperty"}}
+{{#if (eq type "object")}}
+(() => {
+  const subBuf = new Writer();
+  {{#each properties~}}
+  {{> encodeProperty}}
+  {{/each}}
+  subBuf.copyTo(buf);
+})()
+{{else if (eq type "array")}}
+writeArray(buf, obj.{{@key}}, item => {{reference}}.encodeInternal(item, buf))
+{{else if (eq type "reference")}}
+{{#if (eq modifier "optional")}}
+if (obj.{{@key}} !== undefined) {
+  {{reference}}.encodeInternal(obj.{{@key}}, buf);
+}
+{{else}}
+{{reference}}.encodeInternal(obj.{{@key}}, buf)
+{{/if}}
+{{else if (eq type "int")}}
+writeInt(buf, obj.{{@key}})
+{{else if (eq type "float")}}
+writeFloat(buf, obj.{{@key}})
+{{else if (eq type "string")}}
+writeString(buf, obj.{{@key}})
+{{else if (eq type "boolean")}}
+writeBoolean(buf, obj.{{@key}})
+{{/if}}
+{{/inline}}
+
+{{!-- Partial: encodeDiffProperty --}}
+{{#*inline "encodeDiffProperty"}}
+{{#if (eq type "object")}}
+(() => {
+  const val = diff.{{@key}} as any;
+  {{#each properties~}}
+  {{> encodeDiffProperty}}
+  {{/each}}
+})()
+{{else if (eq type "array")}}
+writeArray(buf, diff.{{@key}} as any[], item => {{reference}}.encodeDiff(item, tracker, buf))
+{{else if (eq type "reference")}}
+{{reference}}.encodeDiff(diff.{{@key}} as any, tracker, buf)
+{{else if (eq type "int")}}
+writeInt(buf, diff.{{@key}} as number)
+{{else if (eq type "float")}}
+writeFloat(buf, diff.{{@key}} as number)
+{{else if (eq type "string")}}
+writeString(buf, diff.{{@key}} as string)
+{{else if (eq type "boolean")}}
+writeBoolean(buf, diff.{{@key}} as boolean)
+{{/if}}
+{{/inline}}
+
+{{!-- Partial: decodeProperty --}}
+{{#*inline "decodeProperty"}}
+{{#if (eq type "float")}}
+Math.round(readFloat(buf) * 1000) / 1000
+{{else if (eq type "object")}}
+(() => {
+  return {
+    {{#each properties~}}
+    {{@key}}: {{#if (eq modifier "array")~}}
+    readArray(buf, () => {{reference}}.decodeInternal(buf))
+    {{~else}}
+    {{> decodeProperty}}
+    {{~/if}}{{#unless @last}},{{/unless}}
+    {{/each}}
+  };
+})()
+{{else if (eq type "array")}}
+readArray(buf, () => {{reference}}.decodeInternal(buf))
+{{else if (eq type "reference")}}
+{{reference}}.decodeInternal(buf)
+{{else if (eq type "int")}}
+readInt(buf)
+{{else if (eq type "string")}}
+readString(buf)
+{{else if (eq type "boolean")}}
+readBoolean(buf)
+{{/if}}
+{{/inline}}
+
+{{!-- Partial: decodeDiffProperty --}}
+{{#*inline "decodeDiffProperty"}}
+{{#if (eq modifier "array")}}
+(() => {
+  const length = buf.readVarint();
+  const diffArray = [];
+  
+  for (let i = 0; i < length; i++) {
+    const hasItem = tracker.next();
+    if (!hasItem) {
+      diffArray[i] = NO_DIFF;
+      continue;
+    }
+    {{#if (eq type "reference")}}
+    const itemDiff = {{reference}}.decodeDiff(buf, tracker);
+    {{else}}
+    const itemDiff = {{> readProperty}};
+    {{/if}}
+    diffArray[i] = itemDiff;
+  }
+  return diffArray;
+})()
+{{else}}
+{{> readProperty}}
+{{/if}}
+{{/inline}}
+
+{{!-- Partial: readProperty --}}
+{{#*inline "readProperty"}}
+{{#if (eq type "int")}}
+readInt(buf)
+{{else if (eq type "float")}}
+readFloat(buf)
+{{else if (eq type "string")}}
+readString(buf)
+{{else if (eq type "boolean")}}
+readBoolean(buf)
+{{else if (eq type "reference")}}
+{{reference}}.decodeInternal(buf)
+{{/if}}
+{{/inline}}

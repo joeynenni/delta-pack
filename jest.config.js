@@ -10,5 +10,6 @@ export default {
     'node_modules/(?!(bin-serde)/)'
   ],
   testPathIgnorePatterns: ['/dist/'],
-  extensionsToTreatAsEsm: ['.ts']
+  extensionsToTreatAsEsm: ['.ts'],
+  setupFilesAfterEnv: ['<rootDir>/src/tests/utils/setup.ts']
 } 

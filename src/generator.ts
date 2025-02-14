@@ -1,40 +1,49 @@
 import { readFileSync } from 'node:fs'
-
 import Handlebars from 'handlebars'
+import prettier from 'prettier'
 
 export type Type = ObjectType | UnionType | EnumType | StringType | IntType | FloatType | BooleanType
 export enum Modifier {
 	OPTIONAL = 'optional',
 	ARRAY = 'array'
 }
+
 type ChildType = (StringType | IntType | FloatType | BooleanType | ReferenceType) & {
 	modifier?: Modifier
 }
+
 interface ReferenceType {
 	type: 'reference'
 	reference: string
 }
+
 interface ObjectType {
 	type: 'object'
 	properties: Record<string, ChildType>
 }
+
 interface UnionType {
 	type: 'union'
 	options: ReferenceType[]
 }
+
 interface EnumType {
 	type: 'enum'
 	options: string[]
 }
+
 interface StringType {
 	type: 'string'
 }
+
 interface IntType {
 	type: 'int'
 }
+
 interface FloatType {
 	type: 'float'
 }
+
 interface BooleanType {
 	type: 'boolean'
 }
@@ -79,9 +88,21 @@ export function BooleanType(): BooleanType {
 }
 
 Handlebars.registerHelper('eq', (a, b) => a === b)
+Handlebars.registerHelper('concat', (a, b) => a + b)
 
-export function codegenTypescript(doc: Record<string, Type>) {
-	const templateFile = new URL('template.hbs', import.meta.url)
-	const template = Handlebars.compile(readFileSync(templateFile, 'utf8'))
-	return template(doc)
+export async function generateCode(types: Record<string, Type>): Promise<string> {
+	const templateFile = readFileSync(new URL('template.hbs', import.meta.url), 'utf8')
+	Handlebars.registerHelper('log', console.log)
+	const template = Handlebars.compile(templateFile)
+	const generated = template(types)
+
+	// Format with prettier
+	return prettier.format(generated, {
+		parser: 'typescript',
+		semi: true,
+		singleQuote: true,
+		printWidth: 100,
+		tabWidth: 2,
+		trailingComma: 'es5'
+	})
 }
