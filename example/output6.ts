@@ -1,7 +1,6 @@
 import * as _ from "../helpers.ts";
 
 export type CreatureState = {
-  id: number;
   team: string;
   hero: boolean;
   creatureType: string;
@@ -23,10 +22,8 @@ export type CreatureState = {
   statusEffect?: string;
   x: number;
   y: number;
-  dead: boolean;
 };
 export type ItemState = {
-  id: number;
   itemType: string;
   potionType?: string;
   weaponType?: string;
@@ -34,7 +31,6 @@ export type ItemState = {
   y: number;
 };
 export type EffectState = {
-  id: number;
   creatureId?: number;
   effectType: string;
   triggerType?: string;
@@ -53,7 +49,6 @@ export type EffectState = {
   z?: number;
 };
 export type ObjectState = {
-  id: number;
   team?: string;
   objectType: string;
   destructibleObjectType?: string;
@@ -70,7 +65,6 @@ export type ObjectState = {
   y: number;
 };
 export type PlayerState = {
-  id: string;
   name: string;
   team?: string;
   hero?: number;
@@ -82,7 +76,6 @@ export type PlayerState = {
   restrictionZones: string;
 };
 export type SpectatorState = {
-  id: string;
   name: string;
 };
 export type DeckState = {
@@ -152,21 +145,20 @@ export type Point = {
 };
 export type GameState = {
   creatures: Map<number, CreatureState>;
-  items: ItemState[];
-  effects: EffectState[];
-  objects: ObjectState[];
-  players: PlayerState[];
-  spectators: SpectatorState[];
+  items: Map<number, ItemState>;
+  effects: Map<number, EffectState>;
+  objects: Map<number, ObjectState>;
+  players: Map<string, PlayerState>;
+  spectators: Map<string, SpectatorState>;
   info: GameInfo;
   draft?: DraftState;
-  debugBodies: DebugBodyState[];
+  debugBodies?: DebugBodyState[];
 };
 
 
 export const CreatureState = {
   default(): CreatureState {
     return {
-      id: 0,
       team: "",
       hero: false,
       creatureType: "",
@@ -188,7 +180,6 @@ export const CreatureState = {
       statusEffect: undefined,
       x: 0,
       y: 0,
-      dead: false,
     };
   },
   validate(obj: CreatureState) {
@@ -197,10 +188,6 @@ export const CreatureState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.id), `Invalid int: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: CreatureState.id");
-    }
     validationErrors = _.validatePrimitive(typeof obj.team === "string", `Invalid string: ${obj.team}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: CreatureState.team");
@@ -217,11 +204,11 @@ export const CreatureState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: CreatureState.equippedItemType");
     }
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.health), `Invalid int: ${obj.health}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.health) && obj.health >= 0, `Invalid uint: ${obj.health}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: CreatureState.health");
     }
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.maxHealth), `Invalid int: ${obj.maxHealth}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.maxHealth) && obj.maxHealth >= 0, `Invalid uint: ${obj.maxHealth}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: CreatureState.maxHealth");
     }
@@ -285,21 +272,16 @@ export const CreatureState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: CreatureState.y");
     }
-    validationErrors = _.validatePrimitive(typeof obj.dead === "boolean", `Invalid boolean: ${obj.dead}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: CreatureState.dead");
-    }
 
     return validationErrors;
   },
   encode(obj: CreatureState, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.id);
     _.writeString(buf, obj.team);
     _.writeBoolean(buf, obj.hero);
     _.writeString(buf, obj.creatureType);
     _.writeOptional(buf, obj.equippedItemType, (x) => _.writeString(buf, x));
-    _.writeInt(buf, obj.health);
-    _.writeInt(buf, obj.maxHealth);
+    _.writeUInt(buf, obj.health);
+    _.writeUInt(buf, obj.maxHealth);
     _.writeBoolean(buf, obj.visible);
     _.writeString(buf, obj.facing);
     _.writeBoolean(buf, obj.moving);
@@ -315,21 +297,16 @@ export const CreatureState = {
     _.writeOptional(buf, obj.statusEffect, (x) => _.writeString(buf, x));
     _.writeInt(buf, obj.x);
     _.writeInt(buf, obj.y);
-    _.writeBoolean(buf, obj.dead);
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<CreatureState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeInt(buf, obj.id);
-    }
     tracker.push(obj.team !== _.NO_DIFF);
     if (obj.team !== _.NO_DIFF) {
       _.writeString(buf, obj.team);
     }
     tracker.push(obj.hero !== _.NO_DIFF);
     if (obj.hero !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.hero);
     }
     tracker.push(obj.creatureType !== _.NO_DIFF);
     if (obj.creatureType !== _.NO_DIFF) {
@@ -341,15 +318,15 @@ export const CreatureState = {
     }
     tracker.push(obj.health !== _.NO_DIFF);
     if (obj.health !== _.NO_DIFF) {
-      _.writeInt(buf, obj.health);
+      _.writeUInt(buf, obj.health);
     }
     tracker.push(obj.maxHealth !== _.NO_DIFF);
     if (obj.maxHealth !== _.NO_DIFF) {
-      _.writeInt(buf, obj.maxHealth);
+      _.writeUInt(buf, obj.maxHealth);
     }
     tracker.push(obj.visible !== _.NO_DIFF);
     if (obj.visible !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.visible);
     }
     tracker.push(obj.facing !== _.NO_DIFF);
     if (obj.facing !== _.NO_DIFF) {
@@ -357,7 +334,7 @@ export const CreatureState = {
     }
     tracker.push(obj.moving !== _.NO_DIFF);
     if (obj.moving !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.moving);
     }
     tracker.push(obj.moveType !== _.NO_DIFF);
     if (obj.moveType !== _.NO_DIFF) {
@@ -389,11 +366,11 @@ export const CreatureState = {
     }
     tracker.push(obj.takingDamage !== _.NO_DIFF);
     if (obj.takingDamage !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.takingDamage);
     }
     tracker.push(obj.frozen !== _.NO_DIFF);
     if (obj.frozen !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.frozen);
     }
     tracker.push(obj.statusEffect !== _.NO_DIFF);
     if (obj.statusEffect !== _.NO_DIFF) {
@@ -407,22 +384,17 @@ export const CreatureState = {
     if (obj.y !== _.NO_DIFF) {
       _.writeInt(buf, obj.y);
     }
-    tracker.push(obj.dead !== _.NO_DIFF);
-    if (obj.dead !== _.NO_DIFF) {
-      _.writeNothing();
-    }
     return buf;
   },
   decode(buf: _.Reader): CreatureState {
     const sb = buf;
     return {
-      id: _.parseInt(sb),
       team: _.parseString(sb),
       hero: _.parseBoolean(sb),
       creatureType: _.parseString(sb),
       equippedItemType: _.parseOptional(sb, () => _.parseString(sb)),
-      health: _.parseInt(sb),
-      maxHealth: _.parseInt(sb),
+      health: _.parseUInt(sb),
+      maxHealth: _.parseUInt(sb),
       visible: _.parseBoolean(sb),
       facing: _.parseString(sb),
       moving: _.parseBoolean(sb),
@@ -438,22 +410,20 @@ export const CreatureState = {
       statusEffect: _.parseOptional(sb, () => _.parseString(sb)),
       x: _.parseInt(sb),
       y: _.parseInt(sb),
-      dead: _.parseBoolean(sb),
     };
   },
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<CreatureState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       team: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      hero: tracker.next() ? true : _.NO_DIFF,
+      hero: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
       creatureType: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       equippedItemType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      health: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-      maxHealth: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-      visible: tracker.next() ? true : _.NO_DIFF,
+      health: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
+      maxHealth: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
+      visible: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
       facing: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      moving: tracker.next() ? true : _.NO_DIFF,
+      moving: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
       moveType: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       moveTargetX: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
       moveTargetY: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
@@ -461,17 +431,15 @@ export const CreatureState = {
       enemyTargetY: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
       using: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       useDirection: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      takingDamage: tracker.next() ? true : _.NO_DIFF,
-      frozen: tracker.next() ? true : _.NO_DIFF,
+      takingDamage: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
+      frozen: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
       statusEffect: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       x: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       y: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-      dead: tracker.next() ? true : _.NO_DIFF,
     };
   },
   computeDiff(a: CreatureState, b: CreatureState): _.DeepPartial<CreatureState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<CreatureState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       team: _.diffPrimitive(a.team, b.team),
       hero: _.diffPrimitive(a.hero, b.hero),
       creatureType: _.diffPrimitive(a.creatureType, b.creatureType),
@@ -493,24 +461,22 @@ export const CreatureState = {
       statusEffect: _.diffOptional(a.statusEffect, b.statusEffect, (x, y) => _.diffPrimitive(x, y)),
       x: _.diffPrimitive(a.x, b.x),
       y: _.diffPrimitive(a.y, b.y),
-      dead: _.diffPrimitive(a.dead, b.dead),
     };
-    return diff.id === _.NO_DIFF && diff.team === _.NO_DIFF && diff.hero === _.NO_DIFF && diff.creatureType === _.NO_DIFF && diff.equippedItemType === _.NO_DIFF && diff.health === _.NO_DIFF && diff.maxHealth === _.NO_DIFF && diff.visible === _.NO_DIFF && diff.facing === _.NO_DIFF && diff.moving === _.NO_DIFF && diff.moveType === _.NO_DIFF && diff.moveTargetX === _.NO_DIFF && diff.moveTargetY === _.NO_DIFF && diff.enemyTargetX === _.NO_DIFF && diff.enemyTargetY === _.NO_DIFF && diff.using === _.NO_DIFF && diff.useDirection === _.NO_DIFF && diff.takingDamage === _.NO_DIFF && diff.frozen === _.NO_DIFF && diff.statusEffect === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF && diff.dead === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.team === _.NO_DIFF && diff.hero === _.NO_DIFF && diff.creatureType === _.NO_DIFF && diff.equippedItemType === _.NO_DIFF && diff.health === _.NO_DIFF && diff.maxHealth === _.NO_DIFF && diff.visible === _.NO_DIFF && diff.facing === _.NO_DIFF && diff.moving === _.NO_DIFF && diff.moveType === _.NO_DIFF && diff.moveTargetX === _.NO_DIFF && diff.moveTargetY === _.NO_DIFF && diff.enemyTargetX === _.NO_DIFF && diff.enemyTargetY === _.NO_DIFF && diff.using === _.NO_DIFF && diff.useDirection === _.NO_DIFF && diff.takingDamage === _.NO_DIFF && diff.frozen === _.NO_DIFF && diff.statusEffect === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: CreatureState, diff: _.DeepPartial<CreatureState> | typeof _.NO_DIFF): CreatureState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.team = diff.team === _.NO_DIFF ? obj.team : diff.team;
-    obj.hero = diff.hero === _.NO_DIFF ? obj.hero : !obj.hero;
+    obj.hero = diff.hero === _.NO_DIFF ? obj.hero : diff.hero;
     obj.creatureType = diff.creatureType === _.NO_DIFF ? obj.creatureType : diff.creatureType;
     obj.equippedItemType = diff.equippedItemType === _.NO_DIFF ? obj.equippedItemType : _.patchOptional(obj.equippedItemType, diff.equippedItemType, (a, b) => b);
     obj.health = diff.health === _.NO_DIFF ? obj.health : diff.health;
     obj.maxHealth = diff.maxHealth === _.NO_DIFF ? obj.maxHealth : diff.maxHealth;
-    obj.visible = diff.visible === _.NO_DIFF ? obj.visible : !obj.visible;
+    obj.visible = diff.visible === _.NO_DIFF ? obj.visible : diff.visible;
     obj.facing = diff.facing === _.NO_DIFF ? obj.facing : diff.facing;
-    obj.moving = diff.moving === _.NO_DIFF ? obj.moving : !obj.moving;
+    obj.moving = diff.moving === _.NO_DIFF ? obj.moving : diff.moving;
     obj.moveType = diff.moveType === _.NO_DIFF ? obj.moveType : diff.moveType;
     obj.moveTargetX = diff.moveTargetX === _.NO_DIFF ? obj.moveTargetX : _.patchOptional(obj.moveTargetX, diff.moveTargetX, (a, b) => b);
     obj.moveTargetY = diff.moveTargetY === _.NO_DIFF ? obj.moveTargetY : _.patchOptional(obj.moveTargetY, diff.moveTargetY, (a, b) => b);
@@ -518,12 +484,11 @@ export const CreatureState = {
     obj.enemyTargetY = diff.enemyTargetY === _.NO_DIFF ? obj.enemyTargetY : _.patchOptional(obj.enemyTargetY, diff.enemyTargetY, (a, b) => b);
     obj.using = diff.using === _.NO_DIFF ? obj.using : _.patchOptional(obj.using, diff.using, (a, b) => b);
     obj.useDirection = diff.useDirection === _.NO_DIFF ? obj.useDirection : _.patchOptional(obj.useDirection, diff.useDirection, (a, b) => b);
-    obj.takingDamage = diff.takingDamage === _.NO_DIFF ? obj.takingDamage : !obj.takingDamage;
-    obj.frozen = diff.frozen === _.NO_DIFF ? obj.frozen : !obj.frozen;
+    obj.takingDamage = diff.takingDamage === _.NO_DIFF ? obj.takingDamage : diff.takingDamage;
+    obj.frozen = diff.frozen === _.NO_DIFF ? obj.frozen : diff.frozen;
     obj.statusEffect = diff.statusEffect === _.NO_DIFF ? obj.statusEffect : _.patchOptional(obj.statusEffect, diff.statusEffect, (a, b) => b);
     obj.x = diff.x === _.NO_DIFF ? obj.x : diff.x;
     obj.y = diff.y === _.NO_DIFF ? obj.y : diff.y;
-    obj.dead = diff.dead === _.NO_DIFF ? obj.dead : !obj.dead;
     return obj;
   },
 };
@@ -531,7 +496,6 @@ export const CreatureState = {
 export const ItemState = {
   default(): ItemState {
     return {
-      id: 0,
       itemType: "",
       potionType: undefined,
       weaponType: undefined,
@@ -545,10 +509,6 @@ export const ItemState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.id), `Invalid int: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: ItemState.id");
-    }
     validationErrors = _.validatePrimitive(typeof obj.itemType === "string", `Invalid string: ${obj.itemType}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ItemState.itemType");
@@ -573,7 +533,6 @@ export const ItemState = {
     return validationErrors;
   },
   encode(obj: ItemState, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.id);
     _.writeString(buf, obj.itemType);
     _.writeOptional(buf, obj.potionType, (x) => _.writeString(buf, x));
     _.writeOptional(buf, obj.weaponType, (x) => _.writeString(buf, x));
@@ -582,10 +541,6 @@ export const ItemState = {
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<ItemState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeInt(buf, obj.id);
-    }
     tracker.push(obj.itemType !== _.NO_DIFF);
     if (obj.itemType !== _.NO_DIFF) {
       _.writeString(buf, obj.itemType);
@@ -611,7 +566,6 @@ export const ItemState = {
   decode(buf: _.Reader): ItemState {
     const sb = buf;
     return {
-      id: _.parseInt(sb),
       itemType: _.parseString(sb),
       potionType: _.parseOptional(sb, () => _.parseString(sb)),
       weaponType: _.parseOptional(sb, () => _.parseString(sb)),
@@ -622,7 +576,6 @@ export const ItemState = {
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<ItemState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       itemType: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       potionType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       weaponType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
@@ -632,20 +585,18 @@ export const ItemState = {
   },
   computeDiff(a: ItemState, b: ItemState): _.DeepPartial<ItemState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<ItemState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       itemType: _.diffPrimitive(a.itemType, b.itemType),
       potionType: _.diffOptional(a.potionType, b.potionType, (x, y) => _.diffPrimitive(x, y)),
       weaponType: _.diffOptional(a.weaponType, b.weaponType, (x, y) => _.diffPrimitive(x, y)),
       x: _.diffPrimitive(a.x, b.x),
       y: _.diffPrimitive(a.y, b.y),
     };
-    return diff.id === _.NO_DIFF && diff.itemType === _.NO_DIFF && diff.potionType === _.NO_DIFF && diff.weaponType === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.itemType === _.NO_DIFF && diff.potionType === _.NO_DIFF && diff.weaponType === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: ItemState, diff: _.DeepPartial<ItemState> | typeof _.NO_DIFF): ItemState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.itemType = diff.itemType === _.NO_DIFF ? obj.itemType : diff.itemType;
     obj.potionType = diff.potionType === _.NO_DIFF ? obj.potionType : _.patchOptional(obj.potionType, diff.potionType, (a, b) => b);
     obj.weaponType = diff.weaponType === _.NO_DIFF ? obj.weaponType : _.patchOptional(obj.weaponType, diff.weaponType, (a, b) => b);
@@ -658,7 +609,6 @@ export const ItemState = {
 export const EffectState = {
   default(): EffectState {
     return {
-      id: 0,
       creatureId: undefined,
       effectType: "",
       triggerType: undefined,
@@ -683,10 +633,6 @@ export const EffectState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.id), `Invalid int: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: EffectState.id");
-    }
     validationErrors = _.validateOptional(obj.creatureId, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: EffectState.creatureId");
@@ -735,7 +681,7 @@ export const EffectState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: EffectState.angle");
     }
-    validationErrors = _.validateOptional(obj.radius, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.radius, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: EffectState.radius");
     }
@@ -755,7 +701,6 @@ export const EffectState = {
     return validationErrors;
   },
   encode(obj: EffectState, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.id);
     _.writeOptional(buf, obj.creatureId, (x) => _.writeInt(buf, x));
     _.writeString(buf, obj.effectType);
     _.writeOptional(buf, obj.triggerType, (x) => _.writeString(buf, x));
@@ -768,17 +713,13 @@ export const EffectState = {
     _.writeOptional(buf, obj.weaponType, (x) => _.writeString(buf, x));
     _.writeOptional(buf, obj.direction, (x) => _.writeString(buf, x));
     _.writeOptional(buf, obj.angle, (x) => _.writeInt(buf, x));
-    _.writeOptional(buf, obj.radius, (x) => _.writeInt(buf, x));
+    _.writeOptional(buf, obj.radius, (x) => _.writeUInt(buf, x));
     _.writeInt(buf, obj.x);
     _.writeInt(buf, obj.y);
     _.writeOptional(buf, obj.z, (x) => _.writeInt(buf, x));
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<EffectState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeInt(buf, obj.id);
-    }
     tracker.push(obj.creatureId !== _.NO_DIFF);
     if (obj.creatureId !== _.NO_DIFF) {
       _.writeOptionalDiff(tracker, obj.creatureId, (x) => _.writeInt(buf, x));
@@ -829,7 +770,7 @@ export const EffectState = {
     }
     tracker.push(obj.radius !== _.NO_DIFF);
     if (obj.radius !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.radius, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.radius, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.x !== _.NO_DIFF);
     if (obj.x !== _.NO_DIFF) {
@@ -848,7 +789,6 @@ export const EffectState = {
   decode(buf: _.Reader): EffectState {
     const sb = buf;
     return {
-      id: _.parseInt(sb),
       creatureId: _.parseOptional(sb, () => _.parseInt(sb)),
       effectType: _.parseString(sb),
       triggerType: _.parseOptional(sb, () => _.parseString(sb)),
@@ -861,7 +801,7 @@ export const EffectState = {
       weaponType: _.parseOptional(sb, () => _.parseString(sb)),
       direction: _.parseOptional(sb, () => _.parseString(sb)),
       angle: _.parseOptional(sb, () => _.parseInt(sb)),
-      radius: _.parseOptional(sb, () => _.parseInt(sb)),
+      radius: _.parseOptional(sb, () => _.parseUInt(sb)),
       x: _.parseInt(sb),
       y: _.parseInt(sb),
       z: _.parseOptional(sb, () => _.parseInt(sb)),
@@ -870,7 +810,6 @@ export const EffectState = {
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<EffectState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       creatureId: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
       effectType: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       triggerType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
@@ -883,7 +822,7 @@ export const EffectState = {
       weaponType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       direction: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       angle: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      radius: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
+      radius: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
       x: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       y: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       z: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
@@ -891,7 +830,6 @@ export const EffectState = {
   },
   computeDiff(a: EffectState, b: EffectState): _.DeepPartial<EffectState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<EffectState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       creatureId: _.diffOptional(a.creatureId, b.creatureId, (x, y) => _.diffPrimitive(x, y)),
       effectType: _.diffPrimitive(a.effectType, b.effectType),
       triggerType: _.diffOptional(a.triggerType, b.triggerType, (x, y) => _.diffPrimitive(x, y)),
@@ -909,13 +847,12 @@ export const EffectState = {
       y: _.diffPrimitive(a.y, b.y),
       z: _.diffOptional(a.z, b.z, (x, y) => _.diffPrimitive(x, y)),
     };
-    return diff.id === _.NO_DIFF && diff.creatureId === _.NO_DIFF && diff.effectType === _.NO_DIFF && diff.triggerType === _.NO_DIFF && diff.ellipseEffectType === _.NO_DIFF && diff.weaponEffectType === _.NO_DIFF && diff.projectileType === _.NO_DIFF && diff.visualEffectType === _.NO_DIFF && diff.swingType === _.NO_DIFF && diff.thrustType === _.NO_DIFF && diff.weaponType === _.NO_DIFF && diff.direction === _.NO_DIFF && diff.angle === _.NO_DIFF && diff.radius === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF && diff.z === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.creatureId === _.NO_DIFF && diff.effectType === _.NO_DIFF && diff.triggerType === _.NO_DIFF && diff.ellipseEffectType === _.NO_DIFF && diff.weaponEffectType === _.NO_DIFF && diff.projectileType === _.NO_DIFF && diff.visualEffectType === _.NO_DIFF && diff.swingType === _.NO_DIFF && diff.thrustType === _.NO_DIFF && diff.weaponType === _.NO_DIFF && diff.direction === _.NO_DIFF && diff.angle === _.NO_DIFF && diff.radius === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF && diff.z === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: EffectState, diff: _.DeepPartial<EffectState> | typeof _.NO_DIFF): EffectState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.creatureId = diff.creatureId === _.NO_DIFF ? obj.creatureId : _.patchOptional(obj.creatureId, diff.creatureId, (a, b) => b);
     obj.effectType = diff.effectType === _.NO_DIFF ? obj.effectType : diff.effectType;
     obj.triggerType = diff.triggerType === _.NO_DIFF ? obj.triggerType : _.patchOptional(obj.triggerType, diff.triggerType, (a, b) => b);
@@ -939,7 +876,6 @@ export const EffectState = {
 export const ObjectState = {
   default(): ObjectState {
     return {
-      id: 0,
       team: undefined,
       objectType: "",
       destructibleObjectType: undefined,
@@ -962,10 +898,6 @@ export const ObjectState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.id), `Invalid int: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: ObjectState.id");
-    }
     validationErrors = _.validateOptional(obj.team, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.team");
@@ -994,11 +926,11 @@ export const ObjectState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.towerName");
     }
-    validationErrors = _.validateOptional(obj.width, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.width, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.width");
     }
-    validationErrors = _.validateOptional(obj.height, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.height, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.height");
     }
@@ -1006,11 +938,11 @@ export const ObjectState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.angle");
     }
-    validationErrors = _.validateOptional(obj.durability, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.durability, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.durability");
     }
-    validationErrors = _.validateOptional(obj.maxDurability, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.maxDurability, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: ObjectState.maxDurability");
     }
@@ -1026,7 +958,6 @@ export const ObjectState = {
     return validationErrors;
   },
   encode(obj: ObjectState, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.id);
     _.writeOptional(buf, obj.team, (x) => _.writeString(buf, x));
     _.writeString(buf, obj.objectType);
     _.writeOptional(buf, obj.destructibleObjectType, (x) => _.writeString(buf, x));
@@ -1034,20 +965,16 @@ export const ObjectState = {
     _.writeOptional(buf, obj.interactiveObjectType, (x) => _.writeString(buf, x));
     _.writeOptional(buf, obj.active, (x) => _.writeBoolean(buf, x));
     _.writeOptional(buf, obj.towerName, (x) => _.writeString(buf, x));
-    _.writeOptional(buf, obj.width, (x) => _.writeInt(buf, x));
-    _.writeOptional(buf, obj.height, (x) => _.writeInt(buf, x));
+    _.writeOptional(buf, obj.width, (x) => _.writeUInt(buf, x));
+    _.writeOptional(buf, obj.height, (x) => _.writeUInt(buf, x));
     _.writeOptional(buf, obj.angle, (x) => _.writeInt(buf, x));
-    _.writeOptional(buf, obj.durability, (x) => _.writeInt(buf, x));
-    _.writeOptional(buf, obj.maxDurability, (x) => _.writeInt(buf, x));
+    _.writeOptional(buf, obj.durability, (x) => _.writeUInt(buf, x));
+    _.writeOptional(buf, obj.maxDurability, (x) => _.writeUInt(buf, x));
     _.writeInt(buf, obj.x);
     _.writeInt(buf, obj.y);
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<ObjectState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeInt(buf, obj.id);
-    }
     tracker.push(obj.team !== _.NO_DIFF);
     if (obj.team !== _.NO_DIFF) {
       _.writeOptionalDiff(tracker, obj.team, (x) => _.writeString(buf, x));
@@ -1070,7 +997,7 @@ export const ObjectState = {
     }
     tracker.push(obj.active !== _.NO_DIFF);
     if (obj.active !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.active, (x) => _.writeNothing());
+      _.writeOptionalDiff(tracker, obj.active, (x) => _.writeBoolean(buf, x));
     }
     tracker.push(obj.towerName !== _.NO_DIFF);
     if (obj.towerName !== _.NO_DIFF) {
@@ -1078,11 +1005,11 @@ export const ObjectState = {
     }
     tracker.push(obj.width !== _.NO_DIFF);
     if (obj.width !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.width, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.width, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.height !== _.NO_DIFF);
     if (obj.height !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.height, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.height, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.angle !== _.NO_DIFF);
     if (obj.angle !== _.NO_DIFF) {
@@ -1090,11 +1017,11 @@ export const ObjectState = {
     }
     tracker.push(obj.durability !== _.NO_DIFF);
     if (obj.durability !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.durability, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.durability, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.maxDurability !== _.NO_DIFF);
     if (obj.maxDurability !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.maxDurability, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.maxDurability, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.x !== _.NO_DIFF);
     if (obj.x !== _.NO_DIFF) {
@@ -1109,7 +1036,6 @@ export const ObjectState = {
   decode(buf: _.Reader): ObjectState {
     const sb = buf;
     return {
-      id: _.parseInt(sb),
       team: _.parseOptional(sb, () => _.parseString(sb)),
       objectType: _.parseString(sb),
       destructibleObjectType: _.parseOptional(sb, () => _.parseString(sb)),
@@ -1117,11 +1043,11 @@ export const ObjectState = {
       interactiveObjectType: _.parseOptional(sb, () => _.parseString(sb)),
       active: _.parseOptional(sb, () => _.parseBoolean(sb)),
       towerName: _.parseOptional(sb, () => _.parseString(sb)),
-      width: _.parseOptional(sb, () => _.parseInt(sb)),
-      height: _.parseOptional(sb, () => _.parseInt(sb)),
+      width: _.parseOptional(sb, () => _.parseUInt(sb)),
+      height: _.parseOptional(sb, () => _.parseUInt(sb)),
       angle: _.parseOptional(sb, () => _.parseInt(sb)),
-      durability: _.parseOptional(sb, () => _.parseInt(sb)),
-      maxDurability: _.parseOptional(sb, () => _.parseInt(sb)),
+      durability: _.parseOptional(sb, () => _.parseUInt(sb)),
+      maxDurability: _.parseOptional(sb, () => _.parseUInt(sb)),
       x: _.parseInt(sb),
       y: _.parseInt(sb),
     };
@@ -1129,26 +1055,24 @@ export const ObjectState = {
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<ObjectState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       team: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       objectType: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       destructibleObjectType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       environmentObjectType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
       interactiveObjectType: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      active: tracker.next() ? _.parseOptionalDiff(tracker, () => true) : _.NO_DIFF,
+      active: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseBoolean(sb)) : _.NO_DIFF,
       towerName: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      width: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      height: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
+      width: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
+      height: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
       angle: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      durability: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      maxDurability: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
+      durability: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
+      maxDurability: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
       x: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
       y: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
     };
   },
   computeDiff(a: ObjectState, b: ObjectState): _.DeepPartial<ObjectState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<ObjectState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       team: _.diffOptional(a.team, b.team, (x, y) => _.diffPrimitive(x, y)),
       objectType: _.diffPrimitive(a.objectType, b.objectType),
       destructibleObjectType: _.diffOptional(a.destructibleObjectType, b.destructibleObjectType, (x, y) => _.diffPrimitive(x, y)),
@@ -1164,19 +1088,18 @@ export const ObjectState = {
       x: _.diffPrimitive(a.x, b.x),
       y: _.diffPrimitive(a.y, b.y),
     };
-    return diff.id === _.NO_DIFF && diff.team === _.NO_DIFF && diff.objectType === _.NO_DIFF && diff.destructibleObjectType === _.NO_DIFF && diff.environmentObjectType === _.NO_DIFF && diff.interactiveObjectType === _.NO_DIFF && diff.active === _.NO_DIFF && diff.towerName === _.NO_DIFF && diff.width === _.NO_DIFF && diff.height === _.NO_DIFF && diff.angle === _.NO_DIFF && diff.durability === _.NO_DIFF && diff.maxDurability === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.team === _.NO_DIFF && diff.objectType === _.NO_DIFF && diff.destructibleObjectType === _.NO_DIFF && diff.environmentObjectType === _.NO_DIFF && diff.interactiveObjectType === _.NO_DIFF && diff.active === _.NO_DIFF && diff.towerName === _.NO_DIFF && diff.width === _.NO_DIFF && diff.height === _.NO_DIFF && diff.angle === _.NO_DIFF && diff.durability === _.NO_DIFF && diff.maxDurability === _.NO_DIFF && diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: ObjectState, diff: _.DeepPartial<ObjectState> | typeof _.NO_DIFF): ObjectState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.team = diff.team === _.NO_DIFF ? obj.team : _.patchOptional(obj.team, diff.team, (a, b) => b);
     obj.objectType = diff.objectType === _.NO_DIFF ? obj.objectType : diff.objectType;
     obj.destructibleObjectType = diff.destructibleObjectType === _.NO_DIFF ? obj.destructibleObjectType : _.patchOptional(obj.destructibleObjectType, diff.destructibleObjectType, (a, b) => b);
     obj.environmentObjectType = diff.environmentObjectType === _.NO_DIFF ? obj.environmentObjectType : _.patchOptional(obj.environmentObjectType, diff.environmentObjectType, (a, b) => b);
     obj.interactiveObjectType = diff.interactiveObjectType === _.NO_DIFF ? obj.interactiveObjectType : _.patchOptional(obj.interactiveObjectType, diff.interactiveObjectType, (a, b) => b);
-    obj.active = diff.active === _.NO_DIFF ? obj.active : _.patchOptional(obj.active, diff.active, (a, b) => !a);
+    obj.active = diff.active === _.NO_DIFF ? obj.active : _.patchOptional(obj.active, diff.active, (a, b) => b);
     obj.towerName = diff.towerName === _.NO_DIFF ? obj.towerName : _.patchOptional(obj.towerName, diff.towerName, (a, b) => b);
     obj.width = diff.width === _.NO_DIFF ? obj.width : _.patchOptional(obj.width, diff.width, (a, b) => b);
     obj.height = diff.height === _.NO_DIFF ? obj.height : _.patchOptional(obj.height, diff.height, (a, b) => b);
@@ -1192,7 +1115,6 @@ export const ObjectState = {
 export const PlayerState = {
   default(): PlayerState {
     return {
-      id: "",
       name: "",
       team: undefined,
       hero: undefined,
@@ -1210,10 +1132,6 @@ export const PlayerState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.id === "string", `Invalid string: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayerState.id");
-    }
     validationErrors = _.validatePrimitive(typeof obj.name === "string", `Invalid string: ${obj.name}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: PlayerState.name");
@@ -1222,11 +1140,11 @@ export const PlayerState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: PlayerState.team");
     }
-    validationErrors = _.validateOptional(obj.hero, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.hero, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: PlayerState.hero");
     }
-    validationErrors = _.validateOptional(obj.cents, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.cents, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: PlayerState.cents");
     }
@@ -1254,11 +1172,10 @@ export const PlayerState = {
     return validationErrors;
   },
   encode(obj: PlayerState, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.id);
     _.writeString(buf, obj.name);
     _.writeOptional(buf, obj.team, (x) => _.writeString(buf, x));
-    _.writeOptional(buf, obj.hero, (x) => _.writeInt(buf, x));
-    _.writeOptional(buf, obj.cents, (x) => _.writeInt(buf, x));
+    _.writeOptional(buf, obj.hero, (x) => _.writeUInt(buf, x));
+    _.writeOptional(buf, obj.cents, (x) => _.writeUInt(buf, x));
     _.writeOptional(buf, obj.deck, (x) => DeckState.encode(x, buf));
     _.writeArray(buf, obj.randomSlots, (x) => _.writeString(buf, x));
     _.writeOptional(buf, obj.hand, (x) => HandState.encode(x, buf));
@@ -1267,10 +1184,6 @@ export const PlayerState = {
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<PlayerState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeString(buf, obj.id);
-    }
     tracker.push(obj.name !== _.NO_DIFF);
     if (obj.name !== _.NO_DIFF) {
       _.writeString(buf, obj.name);
@@ -1281,11 +1194,11 @@ export const PlayerState = {
     }
     tracker.push(obj.hero !== _.NO_DIFF);
     if (obj.hero !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.hero, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.hero, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.cents !== _.NO_DIFF);
     if (obj.cents !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.cents, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.cents, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.deck !== _.NO_DIFF);
     if (obj.deck !== _.NO_DIFF) {
@@ -1312,11 +1225,10 @@ export const PlayerState = {
   decode(buf: _.Reader): PlayerState {
     const sb = buf;
     return {
-      id: _.parseString(sb),
       name: _.parseString(sb),
       team: _.parseOptional(sb, () => _.parseString(sb)),
-      hero: _.parseOptional(sb, () => _.parseInt(sb)),
-      cents: _.parseOptional(sb, () => _.parseInt(sb)),
+      hero: _.parseOptional(sb, () => _.parseUInt(sb)),
+      cents: _.parseOptional(sb, () => _.parseUInt(sb)),
       deck: _.parseOptional(sb, () => DeckState.decode(sb)),
       randomSlots: _.parseArray(sb, () => _.parseString(sb)),
       hand: _.parseOptional(sb, () => HandState.decode(sb)),
@@ -1327,11 +1239,10 @@ export const PlayerState = {
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<PlayerState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       name: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       team: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      hero: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      cents: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
+      hero: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
+      cents: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
       deck: tracker.next() ? _.parseOptionalDiff(tracker, () => DeckState.decodeDiff(sb, tracker)) : _.NO_DIFF,
       randomSlots: tracker.next() ? _.parseArrayDiff(sb, tracker, () => _.parseString(sb)) : _.NO_DIFF,
       hand: tracker.next() ? _.parseOptionalDiff(tracker, () => HandState.decodeDiff(sb, tracker)) : _.NO_DIFF,
@@ -1341,7 +1252,6 @@ export const PlayerState = {
   },
   computeDiff(a: PlayerState, b: PlayerState): _.DeepPartial<PlayerState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<PlayerState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       name: _.diffPrimitive(a.name, b.name),
       team: _.diffOptional(a.team, b.team, (x, y) => _.diffPrimitive(x, y)),
       hero: _.diffOptional(a.hero, b.hero, (x, y) => _.diffPrimitive(x, y)),
@@ -1352,13 +1262,12 @@ export const PlayerState = {
       skills: _.diffOptional(a.skills, b.skills, (x, y) => SkillsState.computeDiff(x, y)),
       restrictionZones: _.diffPrimitive(a.restrictionZones, b.restrictionZones),
     };
-    return diff.id === _.NO_DIFF && diff.name === _.NO_DIFF && diff.team === _.NO_DIFF && diff.hero === _.NO_DIFF && diff.cents === _.NO_DIFF && diff.deck === _.NO_DIFF && diff.randomSlots === _.NO_DIFF && diff.hand === _.NO_DIFF && diff.skills === _.NO_DIFF && diff.restrictionZones === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.name === _.NO_DIFF && diff.team === _.NO_DIFF && diff.hero === _.NO_DIFF && diff.cents === _.NO_DIFF && diff.deck === _.NO_DIFF && diff.randomSlots === _.NO_DIFF && diff.hand === _.NO_DIFF && diff.skills === _.NO_DIFF && diff.restrictionZones === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: PlayerState, diff: _.DeepPartial<PlayerState> | typeof _.NO_DIFF): PlayerState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.name = diff.name === _.NO_DIFF ? obj.name : diff.name;
     obj.team = diff.team === _.NO_DIFF ? obj.team : _.patchOptional(obj.team, diff.team, (a, b) => b);
     obj.hero = diff.hero === _.NO_DIFF ? obj.hero : _.patchOptional(obj.hero, diff.hero, (a, b) => b);
@@ -1375,7 +1284,6 @@ export const PlayerState = {
 export const SpectatorState = {
   default(): SpectatorState {
     return {
-      id: "",
       name: "",
     };
   },
@@ -1385,10 +1293,6 @@ export const SpectatorState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.id === "string", `Invalid string: ${obj.id}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: SpectatorState.id");
-    }
     validationErrors = _.validatePrimitive(typeof obj.name === "string", `Invalid string: ${obj.name}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: SpectatorState.name");
@@ -1397,15 +1301,10 @@ export const SpectatorState = {
     return validationErrors;
   },
   encode(obj: SpectatorState, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.id);
     _.writeString(buf, obj.name);
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<SpectatorState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.id !== _.NO_DIFF);
-    if (obj.id !== _.NO_DIFF) {
-      _.writeString(buf, obj.id);
-    }
     tracker.push(obj.name !== _.NO_DIFF);
     if (obj.name !== _.NO_DIFF) {
       _.writeString(buf, obj.name);
@@ -1415,29 +1314,25 @@ export const SpectatorState = {
   decode(buf: _.Reader): SpectatorState {
     const sb = buf;
     return {
-      id: _.parseString(sb),
       name: _.parseString(sb),
     };
   },
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<SpectatorState> {
     const sb = buf;
     return {
-      id: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
       name: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
     };
   },
   computeDiff(a: SpectatorState, b: SpectatorState): _.DeepPartial<SpectatorState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<SpectatorState> =  {
-      id: _.diffPrimitive(a.id, b.id),
       name: _.diffPrimitive(a.name, b.name),
     };
-    return diff.id === _.NO_DIFF && diff.name === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.name === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: SpectatorState, diff: _.DeepPartial<SpectatorState> | typeof _.NO_DIFF): SpectatorState {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.id = diff.id === _.NO_DIFF ? obj.id : diff.id;
     obj.name = diff.name === _.NO_DIFF ? obj.name : diff.name;
     return obj;
   },
@@ -1819,11 +1714,11 @@ export const SkillState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: SkillState.inUse");
     }
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.cooldown), `Invalid int: ${obj.cooldown}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.cooldown) && obj.cooldown >= 0, `Invalid uint: ${obj.cooldown}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: SkillState.cooldown");
     }
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.cooldownTotal), `Invalid int: ${obj.cooldownTotal}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.cooldownTotal) && obj.cooldownTotal >= 0, `Invalid uint: ${obj.cooldownTotal}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: SkillState.cooldownTotal");
     }
@@ -1833,8 +1728,8 @@ export const SkillState = {
   encode(obj: SkillState, buf: _.Writer = new _.Writer()) {
     _.writeString(buf, obj.type);
     _.writeBoolean(buf, obj.inUse);
-    _.writeInt(buf, obj.cooldown);
-    _.writeInt(buf, obj.cooldownTotal);
+    _.writeUInt(buf, obj.cooldown);
+    _.writeUInt(buf, obj.cooldownTotal);
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<SkillState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
@@ -1844,15 +1739,15 @@ export const SkillState = {
     }
     tracker.push(obj.inUse !== _.NO_DIFF);
     if (obj.inUse !== _.NO_DIFF) {
-      _.writeNothing();
+      _.writeBoolean(buf, obj.inUse);
     }
     tracker.push(obj.cooldown !== _.NO_DIFF);
     if (obj.cooldown !== _.NO_DIFF) {
-      _.writeInt(buf, obj.cooldown);
+      _.writeUInt(buf, obj.cooldown);
     }
     tracker.push(obj.cooldownTotal !== _.NO_DIFF);
     if (obj.cooldownTotal !== _.NO_DIFF) {
-      _.writeInt(buf, obj.cooldownTotal);
+      _.writeUInt(buf, obj.cooldownTotal);
     }
     return buf;
   },
@@ -1861,17 +1756,17 @@ export const SkillState = {
     return {
       type: _.parseString(sb),
       inUse: _.parseBoolean(sb),
-      cooldown: _.parseInt(sb),
-      cooldownTotal: _.parseInt(sb),
+      cooldown: _.parseUInt(sb),
+      cooldownTotal: _.parseUInt(sb),
     };
   },
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<SkillState> {
     const sb = buf;
     return {
       type: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      inUse: tracker.next() ? true : _.NO_DIFF,
-      cooldown: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-      cooldownTotal: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
+      inUse: tracker.next() ? _.parseBoolean(sb) : _.NO_DIFF,
+      cooldown: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
+      cooldownTotal: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
     };
   },
   computeDiff(a: SkillState, b: SkillState): _.DeepPartial<SkillState> | typeof _.NO_DIFF {
@@ -1888,7 +1783,7 @@ export const SkillState = {
       return obj;
     }
     obj.type = diff.type === _.NO_DIFF ? obj.type : diff.type;
-    obj.inUse = diff.inUse === _.NO_DIFF ? obj.inUse : !obj.inUse;
+    obj.inUse = diff.inUse === _.NO_DIFF ? obj.inUse : diff.inUse;
     obj.cooldown = diff.cooldown === _.NO_DIFF ? obj.cooldown : diff.cooldown;
     obj.cooldownTotal = diff.cooldownTotal === _.NO_DIFF ? obj.cooldownTotal : diff.cooldownTotal;
     return obj;
@@ -1915,7 +1810,7 @@ export const GameInfo = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameInfo.mode");
     }
-    validationErrors = _.validateOptional(obj.timeLimit, (x) => _.validatePrimitive(Number.isInteger(x), `Invalid int: ${x}`));
+    validationErrors = _.validateOptional(obj.timeLimit, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameInfo.timeLimit");
     }
@@ -1936,7 +1831,7 @@ export const GameInfo = {
   },
   encode(obj: GameInfo, buf: _.Writer = new _.Writer()) {
     _.writeOptional(buf, obj.mode, (x) => _.writeString(buf, x));
-    _.writeOptional(buf, obj.timeLimit, (x) => _.writeInt(buf, x));
+    _.writeOptional(buf, obj.timeLimit, (x) => _.writeUInt(buf, x));
     _.writeOptional(buf, obj.timeElapsed, (x) => _.writeInt(buf, x));
     _.writeOptional(buf, obj.suddenDeath, (x) => _.writeBoolean(buf, x));
     _.writeOptional(buf, obj.winner, (x) => _.writeString(buf, x));
@@ -1949,7 +1844,7 @@ export const GameInfo = {
     }
     tracker.push(obj.timeLimit !== _.NO_DIFF);
     if (obj.timeLimit !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.timeLimit, (x) => _.writeInt(buf, x));
+      _.writeOptionalDiff(tracker, obj.timeLimit, (x) => _.writeUInt(buf, x));
     }
     tracker.push(obj.timeElapsed !== _.NO_DIFF);
     if (obj.timeElapsed !== _.NO_DIFF) {
@@ -1957,7 +1852,7 @@ export const GameInfo = {
     }
     tracker.push(obj.suddenDeath !== _.NO_DIFF);
     if (obj.suddenDeath !== _.NO_DIFF) {
-      _.writeOptionalDiff(tracker, obj.suddenDeath, (x) => _.writeNothing());
+      _.writeOptionalDiff(tracker, obj.suddenDeath, (x) => _.writeBoolean(buf, x));
     }
     tracker.push(obj.winner !== _.NO_DIFF);
     if (obj.winner !== _.NO_DIFF) {
@@ -1969,7 +1864,7 @@ export const GameInfo = {
     const sb = buf;
     return {
       mode: _.parseOptional(sb, () => _.parseString(sb)),
-      timeLimit: _.parseOptional(sb, () => _.parseInt(sb)),
+      timeLimit: _.parseOptional(sb, () => _.parseUInt(sb)),
       timeElapsed: _.parseOptional(sb, () => _.parseInt(sb)),
       suddenDeath: _.parseOptional(sb, () => _.parseBoolean(sb)),
       winner: _.parseOptional(sb, () => _.parseString(sb)),
@@ -1979,9 +1874,9 @@ export const GameInfo = {
     const sb = buf;
     return {
       mode: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
-      timeLimit: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
+      timeLimit: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseUInt(sb)) : _.NO_DIFF,
       timeElapsed: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseInt(sb)) : _.NO_DIFF,
-      suddenDeath: tracker.next() ? _.parseOptionalDiff(tracker, () => true) : _.NO_DIFF,
+      suddenDeath: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseBoolean(sb)) : _.NO_DIFF,
       winner: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseString(sb)) : _.NO_DIFF,
     };
   },
@@ -2002,7 +1897,7 @@ export const GameInfo = {
     obj.mode = diff.mode === _.NO_DIFF ? obj.mode : _.patchOptional(obj.mode, diff.mode, (a, b) => b);
     obj.timeLimit = diff.timeLimit === _.NO_DIFF ? obj.timeLimit : _.patchOptional(obj.timeLimit, diff.timeLimit, (a, b) => b);
     obj.timeElapsed = diff.timeElapsed === _.NO_DIFF ? obj.timeElapsed : _.patchOptional(obj.timeElapsed, diff.timeElapsed, (a, b) => b);
-    obj.suddenDeath = diff.suddenDeath === _.NO_DIFF ? obj.suddenDeath : _.patchOptional(obj.suddenDeath, diff.suddenDeath, (a, b) => !a);
+    obj.suddenDeath = diff.suddenDeath === _.NO_DIFF ? obj.suddenDeath : _.patchOptional(obj.suddenDeath, diff.suddenDeath, (a, b) => b);
     obj.winner = diff.winner === _.NO_DIFF ? obj.winner : _.patchOptional(obj.winner, diff.winner, (a, b) => b);
     return obj;
   },
@@ -2022,7 +1917,7 @@ export const DraftState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.timeRemaining), `Invalid int: ${obj.timeRemaining}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.timeRemaining) && obj.timeRemaining >= 0, `Invalid uint: ${obj.timeRemaining}`);
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: DraftState.timeRemaining");
     }
@@ -2038,7 +1933,7 @@ export const DraftState = {
     return validationErrors;
   },
   encode(obj: DraftState, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.timeRemaining);
+    _.writeUInt(buf, obj.timeRemaining);
     _.writeArray(buf, obj.decks, (x) => DraftDeckState.encode(x, buf));
     _.writeArray(buf, obj.pairs, (x) => CardPairState.encode(x, buf));
     return buf;
@@ -2046,7 +1941,7 @@ export const DraftState = {
   encodeDiff(obj: _.DeepPartial<DraftState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.timeRemaining !== _.NO_DIFF);
     if (obj.timeRemaining !== _.NO_DIFF) {
-      _.writeInt(buf, obj.timeRemaining);
+      _.writeUInt(buf, obj.timeRemaining);
     }
     tracker.push(obj.decks !== _.NO_DIFF);
     if (obj.decks !== _.NO_DIFF) {
@@ -2061,7 +1956,7 @@ export const DraftState = {
   decode(buf: _.Reader): DraftState {
     const sb = buf;
     return {
-      timeRemaining: _.parseInt(sb),
+      timeRemaining: _.parseUInt(sb),
       decks: _.parseArray(sb, () => DraftDeckState.decode(sb)),
       pairs: _.parseArray(sb, () => CardPairState.decode(sb)),
     };
@@ -2069,7 +1964,7 @@ export const DraftState = {
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<DraftState> {
     const sb = buf;
     return {
-      timeRemaining: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
+      timeRemaining: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
       decks: tracker.next() ? _.parseArrayDiff(sb, tracker, () => DraftDeckState.decodeDiff(sb, tracker)) : _.NO_DIFF,
       pairs: tracker.next() ? _.parseArrayDiff(sb, tracker, () => CardPairState.decodeDiff(sb, tracker)) : _.NO_DIFF,
     };
@@ -2507,14 +2402,14 @@ export const GameState = {
   default(): GameState {
     return {
       creatures: new Map(),
-      items: [],
-      effects: [],
-      objects: [],
-      players: [],
-      spectators: [],
+      items: new Map(),
+      effects: new Map(),
+      objects: new Map(),
+      players: new Map(),
+      spectators: new Map(),
       info: GameInfo.default(),
       draft: undefined,
-      debugBodies: [],
+      debugBodies: undefined,
     };
   },
   validate(obj: GameState) {
@@ -2523,27 +2418,27 @@ export const GameState = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validateRecord(obj.creatures, (x) => CreatureState.validate(x));
+    validationErrors = _.validateRecord(obj.creatures, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`), (x) => CreatureState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.creatures");
     }
-    validationErrors = _.validateArray(obj.items, (x) => ItemState.validate(x));
+    validationErrors = _.validateRecord(obj.items, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`), (x) => ItemState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.items");
     }
-    validationErrors = _.validateArray(obj.effects, (x) => EffectState.validate(x));
+    validationErrors = _.validateRecord(obj.effects, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`), (x) => EffectState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.effects");
     }
-    validationErrors = _.validateArray(obj.objects, (x) => ObjectState.validate(x));
+    validationErrors = _.validateRecord(obj.objects, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`), (x) => ObjectState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.objects");
     }
-    validationErrors = _.validateArray(obj.players, (x) => PlayerState.validate(x));
+    validationErrors = _.validateRecord(obj.players, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`), (x) => PlayerState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.players");
     }
-    validationErrors = _.validateArray(obj.spectators, (x) => SpectatorState.validate(x));
+    validationErrors = _.validateRecord(obj.spectators, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`), (x) => SpectatorState.validate(x));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.spectators");
     }
@@ -2555,7 +2450,7 @@ export const GameState = {
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.draft");
     }
-    validationErrors = _.validateArray(obj.debugBodies, (x) => DebugBodyState.validate(x));
+    validationErrors = _.validateOptional(obj.debugBodies, (x) => _.validateArray(x, (x) => DebugBodyState.validate(x)));
     if (validationErrors.length > 0) {
       return validationErrors.concat("Invalid key: GameState.debugBodies");
     }
@@ -2563,41 +2458,41 @@ export const GameState = {
     return validationErrors;
   },
   encode(obj: GameState, buf: _.Writer = new _.Writer()) {
-    _.writeRecord(buf, obj.creatures, (x) => _.writeInt(buf, x), (x) => CreatureState.encode(x, buf));
-    _.writeArray(buf, obj.items, (x) => ItemState.encode(x, buf));
-    _.writeArray(buf, obj.effects, (x) => EffectState.encode(x, buf));
-    _.writeArray(buf, obj.objects, (x) => ObjectState.encode(x, buf));
-    _.writeArray(buf, obj.players, (x) => PlayerState.encode(x, buf));
-    _.writeArray(buf, obj.spectators, (x) => SpectatorState.encode(x, buf));
+    _.writeRecord(buf, obj.creatures, (x) => _.writeUInt(buf, x), (x) => CreatureState.encode(x, buf));
+    _.writeRecord(buf, obj.items, (x) => _.writeUInt(buf, x), (x) => ItemState.encode(x, buf));
+    _.writeRecord(buf, obj.effects, (x) => _.writeUInt(buf, x), (x) => EffectState.encode(x, buf));
+    _.writeRecord(buf, obj.objects, (x) => _.writeUInt(buf, x), (x) => ObjectState.encode(x, buf));
+    _.writeRecord(buf, obj.players, (x) => _.writeString(buf, x), (x) => PlayerState.encode(x, buf));
+    _.writeRecord(buf, obj.spectators, (x) => _.writeString(buf, x), (x) => SpectatorState.encode(x, buf));
     GameInfo.encode(obj.info, buf);
     _.writeOptional(buf, obj.draft, (x) => DraftState.encode(x, buf));
-    _.writeArray(buf, obj.debugBodies, (x) => DebugBodyState.encode(x, buf));
+    _.writeOptional(buf, obj.debugBodies, (x) => _.writeArray(buf, x, (x) => DebugBodyState.encode(x, buf)));
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<GameState>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.creatures !== _.NO_DIFF);
     if (obj.creatures !== _.NO_DIFF) {
-      _.writeRecordDiff(buf, obj.creatures, (x) => _.writeInt(buf, x), (x) => CreatureState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.creatures, (x) => _.writeUInt(buf, x), (x) => CreatureState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.items !== _.NO_DIFF);
     if (obj.items !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.items, (x) => ItemState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.items, (x) => _.writeUInt(buf, x), (x) => ItemState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.effects !== _.NO_DIFF);
     if (obj.effects !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.effects, (x) => EffectState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.effects, (x) => _.writeUInt(buf, x), (x) => EffectState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.objects !== _.NO_DIFF);
     if (obj.objects !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.objects, (x) => ObjectState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.objects, (x) => _.writeUInt(buf, x), (x) => ObjectState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.players !== _.NO_DIFF);
     if (obj.players !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.players, (x) => PlayerState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.players, (x) => _.writeString(buf, x), (x) => PlayerState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.spectators !== _.NO_DIFF);
     if (obj.spectators !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.spectators, (x) => SpectatorState.encodeDiff(x, tracker, buf));
+      _.writeRecordDiff(buf, obj.spectators, (x) => _.writeString(buf, x), (x) => SpectatorState.encodeDiff(x, tracker, buf));
     }
     tracker.push(obj.info !== _.NO_DIFF);
     if (obj.info !== _.NO_DIFF) {
@@ -2609,49 +2504,49 @@ export const GameState = {
     }
     tracker.push(obj.debugBodies !== _.NO_DIFF);
     if (obj.debugBodies !== _.NO_DIFF) {
-      _.writeArrayDiff(buf, tracker, obj.debugBodies, (x) => DebugBodyState.encodeDiff(x, tracker, buf));
+      _.writeOptionalDiff(tracker, obj.debugBodies, (x) => _.writeArrayDiff(buf, tracker, x, (x) => DebugBodyState.encodeDiff(x, tracker, buf)));
     }
     return buf;
   },
   decode(buf: _.Reader): GameState {
     const sb = buf;
     return {
-      creatures: _.parseRecord(sb, () => _.parseInt(sb), () => CreatureState.decode(sb)),
-      items: _.parseArray(sb, () => ItemState.decode(sb)),
-      effects: _.parseArray(sb, () => EffectState.decode(sb)),
-      objects: _.parseArray(sb, () => ObjectState.decode(sb)),
-      players: _.parseArray(sb, () => PlayerState.decode(sb)),
-      spectators: _.parseArray(sb, () => SpectatorState.decode(sb)),
+      creatures: _.parseRecord(sb, () => _.parseUInt(sb), () => CreatureState.decode(sb)),
+      items: _.parseRecord(sb, () => _.parseUInt(sb), () => ItemState.decode(sb)),
+      effects: _.parseRecord(sb, () => _.parseUInt(sb), () => EffectState.decode(sb)),
+      objects: _.parseRecord(sb, () => _.parseUInt(sb), () => ObjectState.decode(sb)),
+      players: _.parseRecord(sb, () => _.parseString(sb), () => PlayerState.decode(sb)),
+      spectators: _.parseRecord(sb, () => _.parseString(sb), () => SpectatorState.decode(sb)),
       info: GameInfo.decode(sb),
       draft: _.parseOptional(sb, () => DraftState.decode(sb)),
-      debugBodies: _.parseArray(sb, () => DebugBodyState.decode(sb)),
+      debugBodies: _.parseOptional(sb, () => _.parseArray(sb, () => DebugBodyState.decode(sb))),
     };
   },
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<GameState> {
     const sb = buf;
     return {
-      creatures: tracker.next() ? _.parseRecordDiff(sb, () => _.parseInt(sb), () => CreatureState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      items: tracker.next() ? _.parseArrayDiff(sb, tracker, () => ItemState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      effects: tracker.next() ? _.parseArrayDiff(sb, tracker, () => EffectState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      objects: tracker.next() ? _.parseArrayDiff(sb, tracker, () => ObjectState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      players: tracker.next() ? _.parseArrayDiff(sb, tracker, () => PlayerState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      spectators: tracker.next() ? _.parseArrayDiff(sb, tracker, () => SpectatorState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      creatures: tracker.next() ? _.parseRecordDiff(sb, () => _.parseUInt(sb), () => CreatureState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      items: tracker.next() ? _.parseRecordDiff(sb, () => _.parseUInt(sb), () => ItemState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      effects: tracker.next() ? _.parseRecordDiff(sb, () => _.parseUInt(sb), () => EffectState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      objects: tracker.next() ? _.parseRecordDiff(sb, () => _.parseUInt(sb), () => ObjectState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      players: tracker.next() ? _.parseRecordDiff(sb, () => _.parseString(sb), () => PlayerState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      spectators: tracker.next() ? _.parseRecordDiff(sb, () => _.parseString(sb), () => SpectatorState.decodeDiff(sb, tracker)) : _.NO_DIFF,
       info: tracker.next() ? GameInfo.decodeDiff(sb, tracker) : _.NO_DIFF,
       draft: tracker.next() ? _.parseOptionalDiff(tracker, () => DraftState.decodeDiff(sb, tracker)) : _.NO_DIFF,
-      debugBodies: tracker.next() ? _.parseArrayDiff(sb, tracker, () => DebugBodyState.decodeDiff(sb, tracker)) : _.NO_DIFF,
+      debugBodies: tracker.next() ? _.parseOptionalDiff(tracker, () => _.parseArrayDiff(sb, tracker, () => DebugBodyState.decodeDiff(sb, tracker))) : _.NO_DIFF,
     };
   },
   computeDiff(a: GameState, b: GameState): _.DeepPartial<GameState> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<GameState> =  {
       creatures: _.diffRecord(a.creatures, b.creatures, (x, y) => CreatureState.computeDiff(x, y)),
-      items: _.diffArray(a.items, b.items, (x, y) => ItemState.computeDiff(x, y)),
-      effects: _.diffArray(a.effects, b.effects, (x, y) => EffectState.computeDiff(x, y)),
-      objects: _.diffArray(a.objects, b.objects, (x, y) => ObjectState.computeDiff(x, y)),
-      players: _.diffArray(a.players, b.players, (x, y) => PlayerState.computeDiff(x, y)),
-      spectators: _.diffArray(a.spectators, b.spectators, (x, y) => SpectatorState.computeDiff(x, y)),
+      items: _.diffRecord(a.items, b.items, (x, y) => ItemState.computeDiff(x, y)),
+      effects: _.diffRecord(a.effects, b.effects, (x, y) => EffectState.computeDiff(x, y)),
+      objects: _.diffRecord(a.objects, b.objects, (x, y) => ObjectState.computeDiff(x, y)),
+      players: _.diffRecord(a.players, b.players, (x, y) => PlayerState.computeDiff(x, y)),
+      spectators: _.diffRecord(a.spectators, b.spectators, (x, y) => SpectatorState.computeDiff(x, y)),
       info: GameInfo.computeDiff(a.info, b.info),
       draft: _.diffOptional(a.draft, b.draft, (x, y) => DraftState.computeDiff(x, y)),
-      debugBodies: _.diffArray(a.debugBodies, b.debugBodies, (x, y) => DebugBodyState.computeDiff(x, y)),
+      debugBodies: _.diffOptional(a.debugBodies, b.debugBodies, (x, y) => _.diffArray(x, y, (x, y) => DebugBodyState.computeDiff(x, y))),
     };
     return diff.creatures === _.NO_DIFF && diff.items === _.NO_DIFF && diff.effects === _.NO_DIFF && diff.objects === _.NO_DIFF && diff.players === _.NO_DIFF && diff.spectators === _.NO_DIFF && diff.info === _.NO_DIFF && diff.draft === _.NO_DIFF && diff.debugBodies === _.NO_DIFF ? _.NO_DIFF : diff;
   },
@@ -2660,14 +2555,14 @@ export const GameState = {
       return obj;
     }
     obj.creatures = diff.creatures === _.NO_DIFF ? obj.creatures : _.patchRecord(obj.creatures, diff.creatures, (a, b) => CreatureState.applyDiff(a, b));
-    obj.items = diff.items === _.NO_DIFF ? obj.items : _.patchArray(obj.items, diff.items, (a, b) => ItemState.applyDiff(a, b));
-    obj.effects = diff.effects === _.NO_DIFF ? obj.effects : _.patchArray(obj.effects, diff.effects, (a, b) => EffectState.applyDiff(a, b));
-    obj.objects = diff.objects === _.NO_DIFF ? obj.objects : _.patchArray(obj.objects, diff.objects, (a, b) => ObjectState.applyDiff(a, b));
-    obj.players = diff.players === _.NO_DIFF ? obj.players : _.patchArray(obj.players, diff.players, (a, b) => PlayerState.applyDiff(a, b));
-    obj.spectators = diff.spectators === _.NO_DIFF ? obj.spectators : _.patchArray(obj.spectators, diff.spectators, (a, b) => SpectatorState.applyDiff(a, b));
+    obj.items = diff.items === _.NO_DIFF ? obj.items : _.patchRecord(obj.items, diff.items, (a, b) => ItemState.applyDiff(a, b));
+    obj.effects = diff.effects === _.NO_DIFF ? obj.effects : _.patchRecord(obj.effects, diff.effects, (a, b) => EffectState.applyDiff(a, b));
+    obj.objects = diff.objects === _.NO_DIFF ? obj.objects : _.patchRecord(obj.objects, diff.objects, (a, b) => ObjectState.applyDiff(a, b));
+    obj.players = diff.players === _.NO_DIFF ? obj.players : _.patchRecord(obj.players, diff.players, (a, b) => PlayerState.applyDiff(a, b));
+    obj.spectators = diff.spectators === _.NO_DIFF ? obj.spectators : _.patchRecord(obj.spectators, diff.spectators, (a, b) => SpectatorState.applyDiff(a, b));
     obj.info = diff.info === _.NO_DIFF ? obj.info : GameInfo.applyDiff(obj.info, diff.info);
     obj.draft = diff.draft === _.NO_DIFF ? obj.draft : _.patchOptional(obj.draft, diff.draft, (a, b) => DraftState.applyDiff(a, b));
-    obj.debugBodies = diff.debugBodies === _.NO_DIFF ? obj.debugBodies : _.patchArray(obj.debugBodies, diff.debugBodies, (a, b) => DebugBodyState.applyDiff(a, b));
+    obj.debugBodies = diff.debugBodies === _.NO_DIFF ? obj.debugBodies : _.patchOptional(obj.debugBodies, diff.debugBodies, (a, b) => _.patchArray(a, b, (a, b) => DebugBodyState.applyDiff(a, b)));
     return obj;
   },
 };

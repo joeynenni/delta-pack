@@ -1,12 +1,12 @@
 import {
+  ArrayType,
   BooleanType,
-  ChildType,
   IntType,
-  Modifier,
   ObjectType,
+  OptionalType,
   RecordType,
-  ReferenceType,
   StringType,
+  UIntType,
   codegenTypescript,
 } from "../generator";
 
@@ -16,74 +16,69 @@ const Point = ObjectType({
 });
 
 const CreatureState = ObjectType({
-  id: IntType(),
   team: StringType(),
   hero: BooleanType(),
   creatureType: StringType(),
-  equippedItemType: ChildType(StringType(), Modifier.OPTIONAL),
-  health: IntType(),
-  maxHealth: IntType(),
+  equippedItemType: OptionalType(StringType()),
+  health: UIntType(),
+  maxHealth: UIntType(),
   visible: BooleanType(),
   facing: StringType(),
   moving: BooleanType(),
   moveType: StringType(),
-  moveTargetX: ChildType(IntType(), Modifier.OPTIONAL),
-  moveTargetY: ChildType(IntType(), Modifier.OPTIONAL),
-  enemyTargetX: ChildType(IntType(), Modifier.OPTIONAL),
-  enemyTargetY: ChildType(IntType(), Modifier.OPTIONAL),
-  using: ChildType(StringType(), Modifier.OPTIONAL),
-  useDirection: ChildType(StringType(), Modifier.OPTIONAL),
+  moveTargetX: OptionalType(IntType()),
+  moveTargetY: OptionalType(IntType()),
+  enemyTargetX: OptionalType(IntType()),
+  enemyTargetY: OptionalType(IntType()),
+  using: OptionalType(StringType()),
+  useDirection: OptionalType(StringType()),
   takingDamage: BooleanType(),
   frozen: BooleanType(),
-  statusEffect: ChildType(StringType(), Modifier.OPTIONAL),
+  statusEffect: OptionalType(StringType()),
   x: IntType(),
   y: IntType(),
-  dead: BooleanType(),
 });
 
 const ItemState = ObjectType({
-  id: IntType(),
   itemType: StringType(),
-  potionType: ChildType(StringType(), Modifier.OPTIONAL),
-  weaponType: ChildType(StringType(), Modifier.OPTIONAL),
+  potionType: OptionalType(StringType()),
+  weaponType: OptionalType(StringType()),
   x: IntType(),
   y: IntType(),
 });
 
 const EffectState = ObjectType({
-  id: IntType(),
-  creatureId: ChildType(IntType(), Modifier.OPTIONAL),
+  creatureId: OptionalType(IntType()),
   effectType: StringType(),
-  triggerType: ChildType(StringType(), Modifier.OPTIONAL),
-  ellipseEffectType: ChildType(StringType(), Modifier.OPTIONAL),
-  weaponEffectType: ChildType(StringType(), Modifier.OPTIONAL),
-  projectileType: ChildType(StringType(), Modifier.OPTIONAL),
-  visualEffectType: ChildType(StringType(), Modifier.OPTIONAL),
-  swingType: ChildType(StringType(), Modifier.OPTIONAL),
-  thrustType: ChildType(StringType(), Modifier.OPTIONAL),
-  weaponType: ChildType(StringType(), Modifier.OPTIONAL),
-  direction: ChildType(StringType(), Modifier.OPTIONAL),
-  angle: ChildType(IntType(), Modifier.OPTIONAL),
-  radius: ChildType(IntType(), Modifier.OPTIONAL),
+  triggerType: OptionalType(StringType()),
+  ellipseEffectType: OptionalType(StringType()),
+  weaponEffectType: OptionalType(StringType()),
+  projectileType: OptionalType(StringType()),
+  visualEffectType: OptionalType(StringType()),
+  swingType: OptionalType(StringType()),
+  thrustType: OptionalType(StringType()),
+  weaponType: OptionalType(StringType()),
+  direction: OptionalType(StringType()),
+  angle: OptionalType(IntType()),
+  radius: OptionalType(UIntType()),
   x: IntType(),
   y: IntType(),
-  z: ChildType(IntType(), Modifier.OPTIONAL),
+  z: OptionalType(IntType()),
 });
 
 const ObjectState = ObjectType({
-  id: IntType(),
-  team: ChildType(StringType(), Modifier.OPTIONAL),
+  team: OptionalType(StringType()),
   objectType: StringType(),
-  destructibleObjectType: ChildType(StringType(), Modifier.OPTIONAL),
-  environmentObjectType: ChildType(StringType(), Modifier.OPTIONAL),
-  interactiveObjectType: ChildType(StringType(), Modifier.OPTIONAL),
-  active: ChildType(BooleanType(), Modifier.OPTIONAL),
-  towerName: ChildType(StringType(), Modifier.OPTIONAL),
-  width: ChildType(IntType(), Modifier.OPTIONAL),
-  height: ChildType(IntType(), Modifier.OPTIONAL),
-  angle: ChildType(IntType(), Modifier.OPTIONAL),
-  durability: ChildType(IntType(), Modifier.OPTIONAL),
-  maxDurability: ChildType(IntType(), Modifier.OPTIONAL),
+  destructibleObjectType: OptionalType(StringType()),
+  environmentObjectType: OptionalType(StringType()),
+  interactiveObjectType: OptionalType(StringType()),
+  active: OptionalType(BooleanType()),
+  towerName: OptionalType(StringType()),
+  width: OptionalType(UIntType()),
+  height: OptionalType(UIntType()),
+  angle: OptionalType(IntType()),
+  durability: OptionalType(UIntType()),
+  maxDurability: OptionalType(UIntType()),
   x: IntType(),
   y: IntType(),
 });
@@ -91,83 +86,81 @@ const ObjectState = ObjectType({
 const DebugBodyState = ObjectType({
   x: IntType(),
   y: IntType(),
-  points: ChildType(ReferenceType("Point"), Modifier.ARRAY),
+  points: ArrayType("Point"),
 });
 
 const PlayerState = ObjectType({
-  id: StringType(),
   name: StringType(),
-  team: ChildType(StringType(), Modifier.OPTIONAL),
-  hero: ChildType(IntType(), Modifier.OPTIONAL),
-  cents: ChildType(IntType(), Modifier.OPTIONAL),
-  deck: ChildType(ReferenceType("DeckState"), Modifier.OPTIONAL),
-  randomSlots: ChildType(StringType(), Modifier.ARRAY),
-  hand: ChildType(ReferenceType("HandState"), Modifier.OPTIONAL),
-  skills: ChildType(ReferenceType("SkillsState"), Modifier.OPTIONAL),
+  team: OptionalType(StringType()),
+  hero: OptionalType(UIntType()),
+  cents: OptionalType(UIntType()),
+  deck: OptionalType("DeckState"),
+  randomSlots: ArrayType(StringType()),
+  hand: OptionalType("HandState"),
+  skills: OptionalType("SkillsState"),
   restrictionZones: StringType(),
 });
 
 const SpectatorState = ObjectType({
-  id: StringType(),
   name: StringType(),
 });
 
 const DeckState = ObjectType({
-  card1: ChildType(StringType(), Modifier.OPTIONAL),
-  card2: ChildType(StringType(), Modifier.OPTIONAL),
-  card3: ChildType(StringType(), Modifier.OPTIONAL),
-  card4: ChildType(StringType(), Modifier.OPTIONAL),
-  card5: ChildType(StringType(), Modifier.OPTIONAL),
-  card6: ChildType(StringType(), Modifier.OPTIONAL),
-  card7: ChildType(StringType(), Modifier.OPTIONAL),
-  card8: ChildType(StringType(), Modifier.OPTIONAL),
+  card1: OptionalType(StringType()),
+  card2: OptionalType(StringType()),
+  card3: OptionalType(StringType()),
+  card4: OptionalType(StringType()),
+  card5: OptionalType(StringType()),
+  card6: OptionalType(StringType()),
+  card7: OptionalType(StringType()),
+  card8: OptionalType(StringType()),
 });
 
 const HandState = ObjectType({
-  slot1: ChildType(StringType(), Modifier.OPTIONAL),
-  slot2: ChildType(StringType(), Modifier.OPTIONAL),
-  slot3: ChildType(StringType(), Modifier.OPTIONAL),
-  slot4: ChildType(StringType(), Modifier.OPTIONAL),
+  slot1: OptionalType(StringType()),
+  slot2: OptionalType(StringType()),
+  slot3: OptionalType(StringType()),
+  slot4: OptionalType(StringType()),
 });
 
 const SkillsState = ObjectType({
-  slot1: ChildType(ReferenceType("SkillState"), Modifier.OPTIONAL),
-  slot2: ChildType(ReferenceType("SkillState"), Modifier.OPTIONAL),
-  slot3: ChildType(ReferenceType("SkillState"), Modifier.OPTIONAL),
-  slot4: ChildType(ReferenceType("SkillState"), Modifier.OPTIONAL),
+  slot1: OptionalType("SkillState"),
+  slot2: OptionalType("SkillState"),
+  slot3: OptionalType("SkillState"),
+  slot4: OptionalType("SkillState"),
 });
 
 const SkillState = ObjectType({
   type: StringType(),
   inUse: BooleanType(),
-  cooldown: IntType(),
-  cooldownTotal: IntType(),
+  cooldown: UIntType(),
+  cooldownTotal: UIntType(),
 });
 
 const GameInfo = ObjectType({
-  mode: ChildType(StringType(), Modifier.OPTIONAL),
-  timeLimit: ChildType(IntType(), Modifier.OPTIONAL),
-  timeElapsed: ChildType(IntType(), Modifier.OPTIONAL),
-  suddenDeath: ChildType(BooleanType(), Modifier.OPTIONAL),
-  winner: ChildType(StringType(), Modifier.OPTIONAL),
+  mode: OptionalType(StringType()),
+  timeLimit: OptionalType(UIntType()),
+  timeElapsed: OptionalType(IntType()),
+  suddenDeath: OptionalType(BooleanType()),
+  winner: OptionalType(StringType()),
 });
 
 const DraftState = ObjectType({
-  timeRemaining: IntType(),
-  decks: ChildType(ReferenceType("DraftDeckState"), Modifier.ARRAY),
-  pairs: ChildType(ReferenceType("CardPairState"), Modifier.ARRAY),
+  timeRemaining: UIntType(),
+  decks: ArrayType("DraftDeckState"),
+  pairs: ArrayType("CardPairState"),
 });
 
 const DraftDeckState = ObjectType({
   playerId: StringType(),
-  card1: ChildType(StringType(), Modifier.OPTIONAL),
-  card2: ChildType(StringType(), Modifier.OPTIONAL),
-  card3: ChildType(StringType(), Modifier.OPTIONAL),
-  card4: ChildType(StringType(), Modifier.OPTIONAL),
-  card5: ChildType(StringType(), Modifier.OPTIONAL),
-  card6: ChildType(StringType(), Modifier.OPTIONAL),
-  card7: ChildType(StringType(), Modifier.OPTIONAL),
-  card8: ChildType(StringType(), Modifier.OPTIONAL),
+  card1: OptionalType(StringType()),
+  card2: OptionalType(StringType()),
+  card3: OptionalType(StringType()),
+  card4: OptionalType(StringType()),
+  card5: OptionalType(StringType()),
+  card6: OptionalType(StringType()),
+  card7: OptionalType(StringType()),
+  card8: OptionalType(StringType()),
 });
 
 const CardPairState = ObjectType({
@@ -177,16 +170,15 @@ const CardPairState = ObjectType({
 });
 
 const GameState = ObjectType({
-  creatures: RecordType(IntType(), ReferenceType("CreatureState")),
-  items: ChildType(ReferenceType("ItemState"), Modifier.ARRAY),
-  effects: ChildType(ReferenceType("EffectState"), Modifier.ARRAY),
-  objects: ChildType(ReferenceType("ObjectState"), Modifier.ARRAY),
-  players: ChildType(ReferenceType("PlayerState"), Modifier.ARRAY),
-  spectators: ChildType(ReferenceType("SpectatorState"), Modifier.ARRAY),
-  info: ReferenceType("GameInfo"),
-  draft: ChildType(ReferenceType("DraftState"), Modifier.OPTIONAL),
-  // TODO: make optional array? (empty array is easier to handle)
-  debugBodies: ChildType(ReferenceType("DebugBodyState"), Modifier.ARRAY),
+  creatures: RecordType(UIntType(), "CreatureState"),
+  items: RecordType(UIntType(), "ItemState"),
+  effects: RecordType(UIntType(), "EffectState"),
+  objects: RecordType(UIntType(), "ObjectState"),
+  players: RecordType(StringType(), "PlayerState"),
+  spectators: RecordType(StringType(), "SpectatorState"),
+  info: "GameInfo",
+  draft: OptionalType("DraftState"),
+  debugBodies: OptionalType(ArrayType("DebugBodyState")),
 });
 
 console.log(
