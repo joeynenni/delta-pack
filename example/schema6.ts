@@ -7,7 +7,6 @@ import {
   RecordType,
   StringType,
   UIntType,
-  codegenTypescript,
 } from "../generator";
 
 const Point = ObjectType({
@@ -48,7 +47,7 @@ const ItemState = ObjectType({
 });
 
 const EffectState = ObjectType({
-  creatureId: OptionalType(IntType()),
+  creatureId: OptionalType(UIntType()),
   effectType: StringType(),
   triggerType: OptionalType(StringType()),
   ellipseEffectType: OptionalType(StringType()),
@@ -95,7 +94,7 @@ const PlayerState = ObjectType({
   hero: OptionalType(UIntType()),
   cents: OptionalType(UIntType()),
   deck: OptionalType("DeckState"),
-  randomSlots: ArrayType(StringType()),
+  randomSlots: OptionalType(ArrayType(StringType())),
   hand: OptionalType("HandState"),
   skills: OptionalType("SkillsState"),
   restrictionZones: StringType(),
@@ -181,24 +180,22 @@ const GameState = ObjectType({
   debugBodies: OptionalType(ArrayType("DebugBodyState")),
 });
 
-console.log(
-  codegenTypescript({
-    CreatureState,
-    ItemState,
-    EffectState,
-    ObjectState,
-    PlayerState,
-    SpectatorState,
-    DeckState,
-    HandState,
-    SkillsState,
-    SkillState,
-    GameInfo,
-    DraftState,
-    DraftDeckState,
-    CardPairState,
-    DebugBodyState,
-    Point,
-    GameState,
-  }),
-);
+export default {
+  Point,
+  CreatureState,
+  ItemState,
+  EffectState,
+  ObjectState,
+  PlayerState,
+  SpectatorState,
+  DeckState,
+  HandState,
+  SkillsState,
+  SkillState,
+  GameInfo,
+  DraftState,
+  DraftDeckState,
+  CardPairState,
+  DebugBodyState,
+  GameState,
+};

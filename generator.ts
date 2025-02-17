@@ -1,50 +1,50 @@
 import { renderDoc } from "./codegen";
 
-type PrimitiveType = EnumType | StringType | IntType | UIntType | FloatType | BooleanType;
-type ContainerType = ArrayType | OptionalType | RecordType;
+export type PrimitiveType = EnumType | StringType | IntType | UIntType | FloatType | BooleanType;
+export type ContainerType = ArrayType | OptionalType | RecordType;
 export type Type = ReferenceType | ObjectType | UnionType | ContainerType | PrimitiveType;
-type ReferenceType = {
+export type ReferenceType = {
   type: "reference";
   reference: string;
 };
-interface ObjectType {
+export interface ObjectType {
   type: "object";
   properties: Record<string, PrimitiveType | ContainerType | ReferenceType>;
 }
-interface UnionType {
+export interface UnionType {
   type: "union";
   options: ReferenceType[];
 }
-interface ArrayType {
+export interface ArrayType {
   type: "array";
   value: PrimitiveType | ContainerType | ReferenceType;
 }
-interface OptionalType {
+export interface OptionalType {
   type: "optional";
   value: PrimitiveType | ContainerType | ReferenceType;
 }
-interface RecordType {
+export interface RecordType {
   type: "record";
   key: StringType | IntType | UIntType;
   value: PrimitiveType | ContainerType | ReferenceType;
 }
-interface EnumType {
+export interface EnumType {
   type: "enum";
   options: string[];
 }
-interface StringType {
+export interface StringType {
   type: "string";
 }
-interface IntType {
+export interface IntType {
   type: "int";
 }
-interface UIntType {
+export interface UIntType {
   type: "uint";
 }
-interface FloatType {
+export interface FloatType {
   type: "float";
 }
-interface BooleanType {
+export interface BooleanType {
   type: "boolean";
 }
 

@@ -1,5 +1,9 @@
 import * as _ from "../helpers.ts";
 
+export type Point = {
+  x: number;
+  y: number;
+};
 export type CreatureState = {
   team: string;
   hero: boolean;
@@ -139,10 +143,6 @@ export type DebugBodyState = {
   y: number;
   points: Point[];
 };
-export type Point = {
-  x: number;
-  y: number;
-};
 export type GameState = {
   creatures: Map<number, CreatureState>;
   items: Map<number, ItemState>;
@@ -155,6 +155,77 @@ export type GameState = {
   debugBodies?: DebugBodyState[];
 };
 
+
+export const Point = {
+  default(): Point {
+    return {
+      x: 0,
+      y: 0,
+    };
+  },
+  validate(obj: Point) {
+    if (typeof obj !== "object") {
+      return [`Invalid Point object: ${obj}`];
+    }
+    let validationErrors: string[] = [];
+
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.x), `Invalid int: ${obj.x}`);
+    if (validationErrors.length > 0) {
+      return validationErrors.concat("Invalid key: Point.x");
+    }
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.y), `Invalid int: ${obj.y}`);
+    if (validationErrors.length > 0) {
+      return validationErrors.concat("Invalid key: Point.y");
+    }
+
+    return validationErrors;
+  },
+  encode(obj: Point, buf: _.Writer = new _.Writer()) {
+    _.writeInt(buf, obj.x);
+    _.writeInt(buf, obj.y);
+    return buf;
+  },
+  encodeDiff(obj: _.DeepPartial<Point>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+    tracker.push(obj.x !== _.NO_DIFF);
+    if (obj.x !== _.NO_DIFF) {
+      _.writeInt(buf, obj.x);
+    }
+    tracker.push(obj.y !== _.NO_DIFF);
+    if (obj.y !== _.NO_DIFF) {
+      _.writeInt(buf, obj.y);
+    }
+    return buf;
+  },
+  decode(buf: _.Reader): Point {
+    const sb = buf;
+    return {
+      x: _.parseInt(sb),
+      y: _.parseInt(sb),
+    };
+  },
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<Point> {
+    const sb = buf;
+    return {
+      x: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
+      y: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
+    };
+  },
+  computeDiff(a: Point, b: Point): _.DeepPartial<Point> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<Point> =  {
+      x: _.diffPrimitive(a.x, b.x),
+      y: _.diffPrimitive(a.y, b.y),
+    };
+    return diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
+  },
+  applyDiff(obj: Point, diff: _.DeepPartial<Point> | typeof _.NO_DIFF): Point {
+    if (diff === _.NO_DIFF) {
+      return obj;
+    }
+    obj.x = diff.x === _.NO_DIFF ? obj.x : diff.x;
+    obj.y = diff.y === _.NO_DIFF ? obj.y : diff.y;
+    return obj;
+  },
+};
 
 export const CreatureState = {
   default(): CreatureState {
@@ -2323,77 +2394,6 @@ export const DebugBodyState = {
     obj.x = diff.x === _.NO_DIFF ? obj.x : diff.x;
     obj.y = diff.y === _.NO_DIFF ? obj.y : diff.y;
     obj.points = diff.points === _.NO_DIFF ? obj.points : _.patchArray(obj.points, diff.points, (a, b) => Point.applyDiff(a, b));
-    return obj;
-  },
-};
-
-export const Point = {
-  default(): Point {
-    return {
-      x: 0,
-      y: 0,
-    };
-  },
-  validate(obj: Point) {
-    if (typeof obj !== "object") {
-      return [`Invalid Point object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.x), `Invalid int: ${obj.x}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: Point.x");
-    }
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.y), `Invalid int: ${obj.y}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: Point.y");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: Point, buf: _.Writer = new _.Writer()) {
-    _.writeInt(buf, obj.x);
-    _.writeInt(buf, obj.y);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<Point>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.x !== _.NO_DIFF);
-    if (obj.x !== _.NO_DIFF) {
-      _.writeInt(buf, obj.x);
-    }
-    tracker.push(obj.y !== _.NO_DIFF);
-    if (obj.y !== _.NO_DIFF) {
-      _.writeInt(buf, obj.y);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader): Point {
-    const sb = buf;
-    return {
-      x: _.parseInt(sb),
-      y: _.parseInt(sb),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<Point> {
-    const sb = buf;
-    return {
-      x: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-      y: tracker.next() ? _.parseInt(sb) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: Point, b: Point): _.DeepPartial<Point> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<Point> =  {
-      x: _.diffPrimitive(a.x, b.x),
-      y: _.diffPrimitive(a.y, b.y),
-    };
-    return diff.x === _.NO_DIFF && diff.y === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: Point, diff: _.DeepPartial<Point> | typeof _.NO_DIFF): Point {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.x = diff.x === _.NO_DIFF ? obj.x : diff.x;
-    obj.y = diff.y === _.NO_DIFF ? obj.y : diff.y;
     return obj;
   },
 };

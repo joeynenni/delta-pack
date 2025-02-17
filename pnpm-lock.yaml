@@ -1,0 +1,80 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
+      bin-serde:
+        specifier: ^1.2.2
+        version: 1.2.2
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.17.19
+        version: 20.17.19
+      typescript:
+        specifier: ^5.3.3
+        version: 5.7.3
+
+packages:
+
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
+
+  '@types/node@20.17.19':
+    resolution: {integrity: sha512-LEwC7o1ifqg/6r2gn9Dns0f1rhK+fPFDoMiceTJ6kWmVk6bgXBI/9IOWfVan4WiAavK9pIVWdX0/e3J+eEUh5A==}
+
+  argparse@2.0.1:
+    resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+
+  bin-serde@1.2.2:
+    resolution: {integrity: sha512-s/eULz3DFLwY9YoxBlxuzv1Zph/Vok9sq5eieJPZ/OvhT8KCGXP5i1fFfl4ABkHG8j72wi/H3Mziwz4qA2Myyw==}
+
+  js-yaml@4.1.0:
+    resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
+    hasBin: true
+
+  typescript@5.7.3:
+    resolution: {integrity: sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  undici-types@6.19.8:
+    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+
+  utf8-buffer-size@0.0.4:
+    resolution: {integrity: sha512-mYYOtZvK3WmxPk9YhQjnkBluLK7y8vkIwgyEU+teoVwrJ+lpR/QapjsNFP30aiAcV4+fd9YvXCR49AxINCwbOg==}
+    engines: {node: '>=8'}
+
+snapshots:
+
+  '@types/js-yaml@4.0.9': {}
+
+  '@types/node@20.17.19':
+    dependencies:
+      undici-types: 6.19.8
+
+  argparse@2.0.1: {}
+
+  bin-serde@1.2.2:
+    dependencies:
+      utf8-buffer-size: 0.0.4
+
+  js-yaml@4.1.0:
+    dependencies:
+      argparse: 2.0.1
+
+  typescript@5.7.3: {}
+
+  undici-types@6.19.8: {}
+
+  utf8-buffer-size@0.0.4: {}

@@ -10,10 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "bin-serde": "^1.2.2"
+    "@types/js-yaml": "^4.0.9",
+    "bin-serde": "^1.2.2",
+    "js-yaml": "^4.1.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.5",
+    "@types/node": "^20.17.19",
     "typescript": "^5.3.3"
   }
 }

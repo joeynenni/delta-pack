@@ -1,0 +1,200 @@
+types:
+  # Common types
+  Point:
+    x: Int
+    y: Int
+
+  # Creature state
+  CreatureState:
+    team: String
+    hero: Boolean
+    creatureType: String
+    equippedItemType: String?
+    health: UInt
+    maxHealth: UInt
+    visible: Boolean
+    facing: String
+    moving: Boolean
+    moveType: String
+    moveTargetX: Int?
+    moveTargetY: Int?
+    enemyTargetX: Int?
+    enemyTargetY: Int?
+    using: String?
+    useDirection: String?
+    takingDamage: Boolean
+    frozen: Boolean
+    statusEffect: String?
+    x: Int
+    y: Int
+
+  # Item state
+  ItemState:
+    itemType: String
+    potionType: String?
+    weaponType: String?
+    x: Int
+    y: Int
+
+  # Effect state
+  EffectState:
+    creatureId: UInt?
+    effectType: String
+    triggerType: String?
+    ellipseEffectType: String?
+    weaponEffectType: String?
+    projectileType: String?
+    visualEffectType: String?
+    swingType: String?
+    thrustType: String?
+    weaponType: String?
+    direction: String?
+    angle: Int?
+    radius: UInt?
+    x: Int
+    y: Int
+    z: Int?
+
+  # Object state
+  ObjectState:
+    team: String?
+    objectType: String
+    destructibleObjectType: String?
+    environmentObjectType: String?
+    interactiveObjectType: String?
+    active: Boolean?
+    towerName: String?
+    width: UInt?
+    height: UInt?
+    angle: Int?
+    durability: UInt?
+    maxDurability: UInt?
+    x: Int
+    y: Int
+
+  # Debug body state
+  DebugBodyState:
+    x: Int
+    y: Int
+    points: Point[]
+
+  # Player state
+  PlayerState:
+    name: String
+    team: String?
+    hero: UInt?
+    cents: UInt?
+    deck: DeckState?
+    randomSlots: String[]?
+    hand: HandState?
+    skills: SkillsState?
+    restrictionZones: String
+
+  # Spectator state
+  SpectatorState:
+    name: String
+
+  # Deck state
+  DeckState:
+    card1: String?
+    card2: String?
+    card3: String?
+    card4: String?
+    card5: String?
+    card6: String?
+    card7: String?
+    card8: String?
+
+  # Hand state
+  HandState:
+    slot1: String?
+    slot2: String?
+    slot3: String?
+    slot4: String?
+
+  # Skill state
+  SkillsState:
+    slot1: SkillState?
+    slot2: SkillState?
+    slot3: SkillState?
+    slot4: SkillState?
+
+  SkillState:
+    type: String
+    inUse: Boolean
+    cooldown: UInt
+    cooldownTotal: UInt
+
+  # Game info
+  GameInfo:
+    mode: String?
+    timeLimit: UInt?
+    timeElapsed: Int?
+    suddenDeath: Boolean?
+    winner: String?
+
+  # Draft state
+  DraftState:
+    timeRemaining: UInt
+    decks: DraftDeckState[]
+    pairs: CardPairState[]
+
+  # Draft deck state
+  DraftDeckState:
+    playerId: String
+    card1: String?
+    card2: String?
+    card3: String?
+    card4: String?
+    card5: String?
+    card6: String?
+    card7: String?
+    card8: String?
+
+  # Card pair state
+  CardPairState:
+    playerId: String
+    slot1: String
+    slot2: String
+
+  # Game state
+  GameState:
+    creatures: Record<UInt, CreatureState>
+    items: Record<UInt, ItemState>
+    effects: Record<UInt, EffectState>
+    objects: Record<UInt, ObjectState>
+    players: Record<String, PlayerState>
+    spectators: Record<String, SpectatorState>
+    info: GameInfo
+    draft: DraftState?
+    debugBodies: DebugBodyState[]?
+
+# Requests
+JoinGameRequest:
+  action: "joinGame"
+  payload:
+    username: String?
+    guest: Boolean?
+    deck: DeckState?
+    spectator: Boolean?
+LeaveGameRequest:
+  action: "leaveGame"
+  payload:
+    reason: String?
+DraftCardRequest:
+  action: "draftCard"
+  payload:
+    slot: UInt
+PlayCardRequest:
+  action: "playCard"
+  payload:
+    slot: UInt
+    variant: UInt?
+    position: Point
+UseSkillRequest:
+  action: "useSkill"
+  payload:
+    slot: UInt
+    position: Point?
+HeartbeatRequest:
+  action: "heartbeat"

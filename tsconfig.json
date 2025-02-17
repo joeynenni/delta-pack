@@ -1,6 +1,7 @@
 {
-  "include": ["generator.ts"],
+  "include": ["generator.ts", "codegen.ts", "schemagen.ts"],
   "compilerOptions": {
+    "types": ["node"],
     "strict": true,
     "declaration": true,
     "esModuleInterop": true,
