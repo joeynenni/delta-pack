@@ -17,16 +17,16 @@ interface UnionType {
 }
 interface ArrayType {
   type: "array";
-  value: PrimitiveType | ReferenceType;
+  value: PrimitiveType | ContainerType | ReferenceType;
 }
 interface OptionalType {
   type: "optional";
-  value: PrimitiveType | ReferenceType;
+  value: PrimitiveType | ContainerType | ReferenceType;
 }
 interface RecordType {
   type: "record";
   key: StringType | IntType | UIntType;
-  value: PrimitiveType | ReferenceType;
+  value: PrimitiveType | ContainerType | ReferenceType;
 }
 interface EnumType {
   type: "enum";
@@ -63,15 +63,18 @@ export function UnionType(options: string[]): UnionType {
   return { type: "union", options: options.map((option) => ({ type: "reference", reference: option })) };
 }
 
-export function ArrayType(value: PrimitiveType | string): ArrayType {
+export function ArrayType(value: PrimitiveType | ContainerType | string): ArrayType {
   return { type: "array", value: handleReference(value) };
 }
 
-export function OptionalType(value: PrimitiveType | string): OptionalType {
+export function OptionalType(value: PrimitiveType | ContainerType | string): OptionalType {
   return { type: "optional", value: handleReference(value) };
 }
 
-export function RecordType(key: StringType | IntType | UIntType, value: PrimitiveType | string): RecordType {
+export function RecordType(
+  key: StringType | IntType | UIntType,
+  value: PrimitiveType | ContainerType | string,
+): RecordType {
   return { type: "record", key, value: handleReference(value) };
 }
 
