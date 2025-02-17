@@ -53,7 +53,7 @@ export const ${name} = {
 
     return validationErrors;
   },
-  encode(obj: ${name}, buf: _.Writer = new _.Writer()) {
+  encode(obj: ${name}, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     ${Object.entries(type.properties)
       .map(([childName, childType]) => {
         return `${renderEncode(childType, name, `obj.${childName}`)};`;
@@ -72,7 +72,7 @@ export const ${name} = {
       .join("\n    ")}
     return buf;
   },
-  decode(buf: _.Reader): ${name} {
+  decode(buf: _.Reader, tracker: _.Tracker): ${name} {
     const sb = buf;
     return {
       ${Object.entries(type.properties)
@@ -288,7 +288,7 @@ export const ${name} = {
     if (type.type === "array") {
       return `_.writeArray(buf, ${key}, (x) => ${renderEncode(type.value, name, "x")})`;
     } else if (type.type === "optional") {
-      return `_.writeOptional(buf, ${key}, (x) => ${renderEncode(type.value, name, "x")})`;
+      return `_.writeOptional(tracker, ${key}, (x) => ${renderEncode(type.value, name, "x")})`;
     } else if (type.type === "record") {
       const keyFn = renderEncode(type.key, name, "x");
       const valueFn = renderEncode(type.value, name, "x");
@@ -308,7 +308,7 @@ export const ${name} = {
     } else if (type.type === "enum") {
       return `_.writeUInt8(buf, ${key})`;
     }
-    return `${name}.encode(${key}, buf)`;
+    return `${name}.encode(${key}, tracker, buf)`;
   }
 
   function renderEncodeDiff(type: Type, name: string, key: string): string {
@@ -317,9 +317,12 @@ export const ${name} = {
     } else if (type.type === "optional") {
       return `_.writeOptionalDiff(tracker, ${key}, (x) => ${renderEncodeDiff(type.value, name, "x")})`;
     } else if (type.type === "record") {
+      const keyType = renderTypeArg(type.key);
+      const valueType = renderTypeArg(type.value);
       const keyFn = renderEncodeDiff(type.key, name, "x");
-      const valueFn = renderEncodeDiff(type.value, name, "x");
-      return `_.writeRecordDiff(buf, ${key}, (x) => ${keyFn}, (x) => ${valueFn})`;
+      const valueFn = renderEncode(type.value, name, "x");
+      const valueUpdateFn = renderEncodeDiff(type.value, name, "x");
+      return `_.writeRecordDiff<${keyType}, ${valueType}>(buf, ${key}, (x) => ${keyFn}, (x) => ${valueFn}, (x) => ${valueUpdateFn})`;
     } else if (type.type === "reference") {
       return renderEncodeDiff(doc[type.reference], type.reference, key);
     } else if (type.type === "string") {
@@ -342,7 +345,7 @@ export const ${name} = {
     if (type.type === "array") {
       return `_.parseArray(sb, () => ${renderDecode(type.value, name, "x")})`;
     } else if (type.type === "optional") {
-      return `_.parseOptional(sb, () => ${renderDecode(type.value, name, "x")})`;
+      return `_.parseOptional(tracker, () => ${renderDecode(type.value, name, "x")})`;
     } else if (type.type === "record") {
       const keyFn = renderDecode(type.key, name, "x");
       const valueFn = renderDecode(type.value, name, "x");
@@ -362,7 +365,7 @@ export const ${name} = {
     } else if (type.type === "enum") {
       return `_.parseUInt8(sb)`;
     }
-    return `${name}.decode(sb)`;
+    return `${name}.decode(sb, tracker)`;
   }
 
   function renderDecodeDiff(type: Type, name: string, key: string): string {
@@ -371,9 +374,12 @@ export const ${name} = {
     } else if (type.type === "optional") {
       return `_.parseOptionalDiff(tracker, () => ${renderDecodeDiff(type.value, name, "x")})`;
     } else if (type.type === "record") {
+      const keyType = renderTypeArg(type.key);
+      const valueType = renderTypeArg(type.value);
       const keyFn = renderDecodeDiff(type.key, name, "x");
-      const valueFn = renderDecodeDiff(type.value, name, "x");
-      return `_.parseRecordDiff(sb, () => ${keyFn}, () => ${valueFn})`;
+      const valueFn = renderDecode(type.value, name, "x");
+      const valueUpdateFn = renderDecodeDiff(type.value, name, "x");
+      return `_.parseRecordDiff<${keyType}, ${valueType}>(sb, () => ${keyFn}, () => ${valueFn}, () => ${valueUpdateFn})`;
     } else if (type.type === "reference") {
       return renderDecodeDiff(doc[type.reference], type.reference, key);
     } else if (type.type === "string") {
@@ -416,11 +422,28 @@ export const ${name} = {
 
   function renderApplyDiff(type: Type, name: string, key: string, diff: string): string {
     if (type.type === "array") {
-      return `_.patchArray(${key}, ${diff}, (a, b) => ${renderApplyDiff(type.value, name, "a", "b")})`;
+      return `_.patchArray<${renderTypeArg(type.value)}>(${key}, ${diff}, (a, b) => ${renderApplyDiff(
+        type.value,
+        name,
+        "a",
+        "b",
+      )})`;
     } else if (type.type === "optional") {
-      return `_.patchOptional(${key}, ${diff}, (a, b) => ${renderApplyDiff(type.value, name, "a", "b")})`;
+      return `_.patchOptional<${renderTypeArg(type.value)}>(${key}, ${diff}, (a, b) => ${renderApplyDiff(
+        type.value,
+        name,
+        "a",
+        "b",
+      )})`;
     } else if (type.type === "record") {
-      return `_.patchRecord(${key}, ${diff}, (a, b) => ${renderApplyDiff(type.value, name, "a", "b")})`;
+      const keyType = renderTypeArg(type.key);
+      const valueType = renderTypeArg(type.value);
+      return `_.patchRecord<${keyType}, ${valueType}>(${key}, ${diff}, (a, b) => ${renderApplyDiff(
+        type.value,
+        name,
+        "a",
+        "b",
+      )})`;
     } else if (type.type === "reference") {
       return renderApplyDiff(doc[type.reference], type.reference, key, diff);
     } else if (
