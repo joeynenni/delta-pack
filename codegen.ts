@@ -1,9 +1,4 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
 import type { Type } from "./generator";
-import { convertYamlToSchema } from "./convert";
 
 export function renderDoc(doc: Record<string, Type>) {
   return `import * as _ from "../helpers.ts";
@@ -475,44 +470,6 @@ export const ${name} = {
     }
     return `${name}.applyDiff(${key}, ${diff})`;
   }
-}
-
-async function main() {
-  const args = process.argv.slice(2);
-  if (args.length !== 2) {
-    console.error('Usage: tsx codegen.ts <input.ts|yml> <output.ts>');
-    process.exit(1);
-  }
-
-  const [inputFile, outputFile] = args;
-  
-  try {
-    const inputPath = path.resolve(process.cwd(), inputFile);
-    let schema: Record<string, Type>;
-    
-    if (inputFile.endsWith('.yml')) {
-      const yamlContent = fs.readFileSync(inputPath, 'utf8');
-      const yamlSchema = yaml.load(yamlContent) as { types: Record<string, Record<string, string>> };
-      schema = convertYamlToSchema(yamlSchema);
-    } else {
-      const schemaModule = await import(`file://${inputPath}`);
-      schema = schemaModule.default;
-    }
-    
-    if (!schema || typeof schema !== 'object') {
-      throw new Error('Invalid schema format');
-    }
-    
-    const output = renderDoc(schema);
-    fs.writeFileSync(outputFile, output);
-  } catch (error) {
-    console.error('Error processing schema:', error);
-    process.exit(1);
-  }
-}
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch(console.error);
 }
 
 // TODO: get rid of this once we clean everything up

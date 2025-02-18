@@ -178,8 +178,6 @@ JoinGameRequest:
 
 # Leave game request
 LeaveGameRequest:
-  action: String
-  payload:
   reason: String?
 
 # Draft card request
