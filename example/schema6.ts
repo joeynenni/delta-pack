@@ -274,4 +274,5 @@ export default {
   UseSkillRequest,
   UseSkillRequestPayload,
   HeartbeatRequest,
+  RequestMessage,
 };

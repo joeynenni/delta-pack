@@ -198,6 +198,7 @@ export type UseSkillRequestPayload = {
 export type HeartbeatRequest = {
   action: string;
 };
+export type RequestMessage = { type: "JoinGameRequest"; val: JoinGameRequest } | { type: "LeaveGameRequest"; val: LeaveGameRequest } | { type: "DraftCardRequest"; val: DraftCardRequest } | { type: "PlayCardRequest"; val: PlayCardRequest } | { type: "UseSkillRequest"; val: UseSkillRequest } | { type: "HeartbeatRequest"; val: HeartbeatRequest };
 
 
 export const Point = {
@@ -3391,3 +3392,178 @@ export const HeartbeatRequest = {
     return obj;
   },
 };
+
+export const RequestMessage = {
+  default(): RequestMessage {
+    return {
+      type: "JoinGameRequest",
+      val: JoinGameRequest.default(),
+    };
+  },
+  values() {
+    return ["JoinGameRequest", "LeaveGameRequest", "DraftCardRequest", "PlayCardRequest", "UseSkillRequest", "HeartbeatRequest"];
+  },
+  validate(obj: RequestMessage) {
+    if (obj.type === "JoinGameRequest") {
+      const validationErrors = JoinGameRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else if (obj.type === "LeaveGameRequest") {
+      const validationErrors = LeaveGameRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else if (obj.type === "DraftCardRequest") {
+      const validationErrors = DraftCardRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else if (obj.type === "PlayCardRequest") {
+      const validationErrors = PlayCardRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else if (obj.type === "UseSkillRequest") {
+      const validationErrors = UseSkillRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else if (obj.type === "HeartbeatRequest") {
+      const validationErrors = HeartbeatRequest.validate(obj.val);
+      if (validationErrors.length > 0) {
+        return validationErrors.concat("Invalid union: RequestMessage");
+      }
+      return validationErrors;
+    }
+    else {
+      return [`Invalid RequestMessage union: ${obj}`];
+    }
+  },
+  encode(obj: RequestMessage, buf: _.Writer = new _.Writer()) {
+    if (obj.type === "JoinGameRequest") {
+      _.writeUInt8(buf, 0);
+      JoinGameRequest.encode(obj.val, tracker, buf);
+    }
+    else if (obj.type === "LeaveGameRequest") {
+      _.writeUInt8(buf, 1);
+      LeaveGameRequest.encode(obj.val, tracker, buf);
+    }
+    else if (obj.type === "DraftCardRequest") {
+      _.writeUInt8(buf, 2);
+      DraftCardRequest.encode(obj.val, tracker, buf);
+    }
+    else if (obj.type === "PlayCardRequest") {
+      _.writeUInt8(buf, 3);
+      PlayCardRequest.encode(obj.val, tracker, buf);
+    }
+    else if (obj.type === "UseSkillRequest") {
+      _.writeUInt8(buf, 4);
+      UseSkillRequest.encode(obj.val, tracker, buf);
+    }
+    else if (obj.type === "HeartbeatRequest") {
+      _.writeUInt8(buf, 5);
+      HeartbeatRequest.encode(obj.val, tracker, buf);
+    }
+    return buf;
+  },
+  encodeDiff(obj: _.DeepPartial<RequestMessage>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+    if (obj.type === "JoinGameRequest") {
+      _.writeUInt8(buf, 0);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       JoinGameRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    else if (obj.type === "LeaveGameRequest") {
+      _.writeUInt8(buf, 1);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       LeaveGameRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    else if (obj.type === "DraftCardRequest") {
+      _.writeUInt8(buf, 2);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       DraftCardRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    else if (obj.type === "PlayCardRequest") {
+      _.writeUInt8(buf, 3);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       PlayCardRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    else if (obj.type === "UseSkillRequest") {
+      _.writeUInt8(buf, 4);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       UseSkillRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    else if (obj.type === "HeartbeatRequest") {
+      _.writeUInt8(buf, 5);
+      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      if (obj.val !== _.NO_DIFF) {
+       HeartbeatRequest.encodeDiff(obj.val, tracker, buf);
+      }
+    }
+    return buf;
+  },
+  decode(sb: _.Reader): RequestMessage {
+    const type = _.parseUInt8(sb);
+    if (type === 0) {
+      return { type: "JoinGameRequest", val: JoinGameRequest.decode(sb, tracker) };
+    }
+    else if (type === 1) {
+      return { type: "LeaveGameRequest", val: LeaveGameRequest.decode(sb, tracker) };
+    }
+    else if (type === 2) {
+      return { type: "DraftCardRequest", val: DraftCardRequest.decode(sb, tracker) };
+    }
+    else if (type === 3) {
+      return { type: "PlayCardRequest", val: PlayCardRequest.decode(sb, tracker) };
+    }
+    else if (type === 4) {
+      return { type: "UseSkillRequest", val: UseSkillRequest.decode(sb, tracker) };
+    }
+    else if (type === 5) {
+      return { type: "HeartbeatRequest", val: HeartbeatRequest.decode(sb, tracker) };
+    }
+    throw new Error("Invalid union");
+  },
+  decodeDiff(sb: _.Reader, tracker: _.Tracker): _.DeepPartial<RequestMessage> {
+    const type = _.parseUInt8(sb);
+    if (type === 0) {
+      return { type: "JoinGameRequest", val: _.parseBoolean(sb) ? JoinGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    else if (type === 1) {
+      return { type: "LeaveGameRequest", val: _.parseBoolean(sb) ? LeaveGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    else if (type === 2) {
+      return { type: "DraftCardRequest", val: _.parseBoolean(sb) ? DraftCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    else if (type === 3) {
+      return { type: "PlayCardRequest", val: _.parseBoolean(sb) ? PlayCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    else if (type === 4) {
+      return { type: "UseSkillRequest", val: _.parseBoolean(sb) ? UseSkillRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    else if (type === 5) {
+      return { type: "HeartbeatRequest", val: _.parseBoolean(sb) ? HeartbeatRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+    }
+    throw new Error("Invalid union");
+  },
+}
