@@ -171,30 +171,30 @@ types:
 
 # Requests
 JoinGameRequest:
-  action: "joinGame"
+  action: String
   payload:
     username: String?
     guest: Boolean?
     deck: DeckState?
     spectator: Boolean?
 LeaveGameRequest:
-  action: "leaveGame"
+  action: String
   payload:
     reason: String?
 DraftCardRequest:
-  action: "draftCard"
+  action: String
   payload:
     slot: UInt
 PlayCardRequest:
-  action: "playCard"
+  action: String
   payload:
     slot: UInt
     variant: UInt?
     position: Point
 UseSkillRequest:
-  action: "useSkill"
+  action: String
   payload:
     slot: UInt
     position: Point?
 HeartbeatRequest:
-  action: "heartbeat"
+  action: String

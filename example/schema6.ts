@@ -180,6 +180,61 @@ const GameState = ObjectType({
   debugBodies: OptionalType(ArrayType("DebugBodyState")),
 });
 
+const JoinGameRequest = ObjectType({
+  action: StringType(),
+  payload: "JoinGameRequestPayload",
+});
+
+const JoinGameRequestPayload = ObjectType({
+  username: OptionalType(StringType()),
+  guest: OptionalType(BooleanType()),
+  deck: OptionalType("DeckState"),
+  spectator: OptionalType(BooleanType()),
+});
+
+const LeaveGameRequest = ObjectType({
+  action: StringType(),
+  payload: "LeaveGameRequestPayload",
+});
+
+const LeaveGameRequestPayload = ObjectType({
+  reason: OptionalType(StringType()),
+});
+
+const DraftCardRequest = ObjectType({
+  action: StringType(),
+  payload: "DraftCardRequestPayload",
+});
+
+const DraftCardRequestPayload = ObjectType({
+  slot: UIntType(),
+});
+
+const PlayCardRequest = ObjectType({
+  action: StringType(),
+  payload: "PlayCardRequestPayload",
+});
+
+const PlayCardRequestPayload = ObjectType({
+  slot: UIntType(),
+  variant: OptionalType(UIntType()),
+  position: "Point",
+});
+
+const UseSkillRequest = ObjectType({
+  action: StringType(),
+  payload: "UseSkillRequestPayload",
+});
+
+const UseSkillRequestPayload = ObjectType({
+  slot: UIntType(),
+  position: OptionalType("Point"),
+});
+
+const HeartbeatRequest = ObjectType({
+  action: StringType(),
+});
+
 export default {
   Point,
   CreatureState,
@@ -198,4 +253,15 @@ export default {
   CardPairState,
   DebugBodyState,
   GameState,
+  JoinGameRequest,
+  JoinGameRequestPayload,
+  LeaveGameRequest,
+  LeaveGameRequestPayload,
+  DraftCardRequest,
+  DraftCardRequestPayload,
+  PlayCardRequest,
+  PlayCardRequestPayload,
+  UseSkillRequest,
+  UseSkillRequestPayload,
+  HeartbeatRequest,
 };
