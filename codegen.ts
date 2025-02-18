@@ -304,7 +304,7 @@ export const ${name} = {
     } else if (type.type === "float") {
       return `_.writeFloat(buf, ${key})`;
     } else if (type.type === "boolean") {
-      return `_.writeBoolean(buf, ${key})`;
+      return `_.writeBoolean(tracker, ${key})`;
     } else if (type.type === "enum") {
       return `_.writeUInt8(buf, ${key})`;
     }
@@ -313,9 +313,15 @@ export const ${name} = {
 
   function renderEncodeDiff(type: Type, name: string, key: string): string {
     if (type.type === "array") {
-      return `_.writeArrayDiff(buf, tracker, ${key}, (x) => ${renderEncodeDiff(type.value, name, "x")})`;
+      const valueType = renderTypeArg(type.value);
+      const valueFn = renderEncode(type.value, name, "x");
+      const valueUpdateFn = renderEncodeDiff(type.value, name, "x");
+      return `_.writeArrayDiff<${valueType}>(buf, tracker, ${key}, (x) => ${valueFn}, (x) => ${valueUpdateFn})`;
     } else if (type.type === "optional") {
-      return `_.writeOptionalDiff(tracker, ${key}, (x) => ${renderEncodeDiff(type.value, name, "x")})`;
+      const valueType = renderTypeArg(type.value);
+      const fullFn = renderEncode(type.value, name, "x");
+      const partialFn = renderEncodeDiff(type.value, name, "x");
+      return `_.writeOptionalDiff<${valueType}>(tracker, ${key}!, (x) => ${fullFn}, (x) => ${partialFn})`;
     } else if (type.type === "record") {
       const keyType = renderTypeArg(type.key);
       const valueType = renderTypeArg(type.value);
@@ -334,7 +340,7 @@ export const ${name} = {
     } else if (type.type === "float") {
       return `_.writeFloat(buf, ${key})`;
     } else if (type.type === "boolean") {
-      return `_.writeBoolean(buf, ${key})`;
+      return `_.writeBoolean(tracker, ${key})`;
     } else if (type.type === "enum") {
       return `_.writeUInt8(buf, ${key})`;
     }
@@ -361,7 +367,7 @@ export const ${name} = {
     } else if (type.type === "float") {
       return `_.parseFloat(sb)`;
     } else if (type.type === "boolean") {
-      return `_.parseBoolean(sb)`;
+      return `_.parseBoolean(tracker)`;
     } else if (type.type === "enum") {
       return `_.parseUInt8(sb)`;
     }
@@ -370,9 +376,15 @@ export const ${name} = {
 
   function renderDecodeDiff(type: Type, name: string, key: string): string {
     if (type.type === "array") {
-      return `_.parseArrayDiff(sb, tracker, () => ${renderDecodeDiff(type.value, name, "x")})`;
+      const valueType = renderTypeArg(type.value);
+      const valueFn = renderDecode(type.value, name, "x");
+      const valueUpdateFn = renderDecodeDiff(type.value, name, "x");
+      return `_.parseArrayDiff<${valueType}>(sb, tracker, () => ${valueFn}, () => ${valueUpdateFn})`;
     } else if (type.type === "optional") {
-      return `_.parseOptionalDiff(tracker, () => ${renderDecodeDiff(type.value, name, "x")})`;
+      const valueType = renderTypeArg(type.value);
+      const fullFn = renderDecode(type.value, name, "x");
+      const partialFn = renderDecodeDiff(type.value, name, "x");
+      return `_.parseOptionalDiff<${valueType}>(tracker, () => ${fullFn}, () => ${partialFn})`;
     } else if (type.type === "record") {
       const keyType = renderTypeArg(type.key);
       const valueType = renderTypeArg(type.value);
@@ -391,7 +403,7 @@ export const ${name} = {
     } else if (type.type === "float") {
       return `_.parseFloat(sb)`;
     } else if (type.type === "boolean") {
-      return `_.parseBoolean(sb)`;
+      return `_.parseBoolean(tracker)`;
     } else if (type.type === "enum") {
       return `_.parseUInt8(sb)`;
     }
@@ -402,7 +414,12 @@ export const ${name} = {
     if (type.type === "array") {
       return `_.diffArray(${keyA}, ${keyB}, (x, y) => ${renderComputeDiff(type.value, name, "x", "y")})`;
     } else if (type.type === "optional") {
-      return `_.diffOptional(${keyA}, ${keyB}, (x, y) => ${renderComputeDiff(type.value, name, "x", "y")})`;
+      return `_.diffOptional<${renderTypeArg(type.value)}>(${keyA}, ${keyB}, (x, y) => ${renderComputeDiff(
+        type.value,
+        name,
+        "x",
+        "y",
+      )})`;
     } else if (type.type === "record") {
       return `_.diffRecord(${keyA}, ${keyB}, (x, y) => ${renderComputeDiff(type.value, name, "x", "y")})`;
     } else if (type.type === "reference") {
@@ -429,7 +446,7 @@ export const ${name} = {
         "b",
       )})`;
     } else if (type.type === "optional") {
-      return `_.patchOptional<${renderTypeArg(type.value)}>(${key}, ${diff}, (a, b) => ${renderApplyDiff(
+      return `_.patchOptional<${renderTypeArg(type.value)}>(${key}, ${diff}!, (a, b) => ${renderApplyDiff(
         type.value,
         name,
         "a",
