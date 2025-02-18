@@ -182,11 +182,6 @@ const GameState = ObjectType({
 });
 
 const JoinGameRequest = ObjectType({
-  action: StringType(),
-  payload: "JoinGameRequestPayload",
-});
-
-const JoinGameRequestPayload = ObjectType({
   username: OptionalType(StringType()),
   guest: OptionalType(BooleanType()),
   deck: OptionalType("DeckState"),
@@ -194,46 +189,26 @@ const JoinGameRequestPayload = ObjectType({
 });
 
 const LeaveGameRequest = ObjectType({
-  action: StringType(),
-  payload: "LeaveGameRequestPayload",
-});
-
-const LeaveGameRequestPayload = ObjectType({
   reason: OptionalType(StringType()),
 });
 
 const DraftCardRequest = ObjectType({
-  action: StringType(),
-  payload: "DraftCardRequestPayload",
-});
-
-const DraftCardRequestPayload = ObjectType({
   slot: UIntType(),
 });
 
 const PlayCardRequest = ObjectType({
-  action: StringType(),
-  payload: "PlayCardRequestPayload",
-});
-
-const PlayCardRequestPayload = ObjectType({
   slot: UIntType(),
   variant: OptionalType(UIntType()),
   position: "Point",
 });
 
 const UseSkillRequest = ObjectType({
-  action: StringType(),
-  payload: "UseSkillRequestPayload",
-});
-
-const UseSkillRequestPayload = ObjectType({
   slot: UIntType(),
   position: OptionalType("Point"),
 });
 
 const HeartbeatRequest = ObjectType({
-  action: StringType(),
+  time: UIntType(),
 });
 
 const RequestMessage = UnionType([
@@ -264,15 +239,10 @@ export default {
   DebugBodyState,
   GameState,
   JoinGameRequest,
-  JoinGameRequestPayload,
   LeaveGameRequest,
-  LeaveGameRequestPayload,
   DraftCardRequest,
-  DraftCardRequestPayload,
   PlayCardRequest,
-  PlayCardRequestPayload,
   UseSkillRequest,
-  UseSkillRequestPayload,
   HeartbeatRequest,
   RequestMessage,
 };

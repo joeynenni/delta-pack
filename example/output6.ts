@@ -155,48 +155,28 @@ export type GameState = {
   debugBodies?: DebugBodyState[];
 };
 export type JoinGameRequest = {
-  action: string;
-  payload: JoinGameRequestPayload;
-};
-export type JoinGameRequestPayload = {
   username?: string;
   guest?: boolean;
   deck?: DeckState;
   spectator?: boolean;
 };
 export type LeaveGameRequest = {
-  action: string;
-  payload: LeaveGameRequestPayload;
-};
-export type LeaveGameRequestPayload = {
   reason?: string;
 };
 export type DraftCardRequest = {
-  action: string;
-  payload: DraftCardRequestPayload;
-};
-export type DraftCardRequestPayload = {
   slot: number;
 };
 export type PlayCardRequest = {
-  action: string;
-  payload: PlayCardRequestPayload;
-};
-export type PlayCardRequestPayload = {
   slot: number;
   variant?: number;
   position: Point;
 };
 export type UseSkillRequest = {
-  action: string;
-  payload: UseSkillRequestPayload;
-};
-export type UseSkillRequestPayload = {
   slot: number;
   position?: Point;
 };
 export type HeartbeatRequest = {
-  action: string;
+  time: number;
 };
 export type RequestMessage = { type: "JoinGameRequest"; val: JoinGameRequest } | { type: "LeaveGameRequest"; val: LeaveGameRequest } | { type: "DraftCardRequest"; val: DraftCardRequest } | { type: "PlayCardRequest"; val: PlayCardRequest } | { type: "UseSkillRequest"; val: UseSkillRequest } | { type: "HeartbeatRequest"; val: HeartbeatRequest };
 
@@ -2615,8 +2595,10 @@ export const GameState = {
 export const JoinGameRequest = {
   default(): JoinGameRequest {
     return {
-      action: "",
-      payload: JoinGameRequestPayload.default(),
+      username: undefined,
+      guest: undefined,
+      deck: undefined,
+      spectator: undefined,
     };
   },
   validate(obj: JoinGameRequest) {
@@ -2625,106 +2607,33 @@ export const JoinGameRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validateOptional(obj.username, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`));
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequest.action");
+      return validationErrors.concat("Invalid key: JoinGameRequest.username");
     }
-    validationErrors = JoinGameRequestPayload.validate(obj.payload);
+    validationErrors = _.validateOptional(obj.guest, (x) => _.validatePrimitive(typeof x === "boolean", `Invalid boolean: ${x}`));
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequest.payload");
+      return validationErrors.concat("Invalid key: JoinGameRequest.guest");
+    }
+    validationErrors = _.validateOptional(obj.deck, (x) => DeckState.validate(x));
+    if (validationErrors.length > 0) {
+      return validationErrors.concat("Invalid key: JoinGameRequest.deck");
+    }
+    validationErrors = _.validateOptional(obj.spectator, (x) => _.validatePrimitive(typeof x === "boolean", `Invalid boolean: ${x}`));
+    if (validationErrors.length > 0) {
+      return validationErrors.concat("Invalid key: JoinGameRequest.spectator");
     }
 
     return validationErrors;
   },
   encode(obj: JoinGameRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
-    JoinGameRequestPayload.encode(obj.payload, tracker, buf);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<JoinGameRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
-    }
-    tracker.push(obj.payload !== _.NO_DIFF);
-    if (obj.payload !== _.NO_DIFF) {
-      JoinGameRequestPayload.encodeDiff(obj.payload, tracker, buf);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader, tracker: _.Tracker): JoinGameRequest {
-    const sb = buf;
-    return {
-      action: _.parseString(sb),
-      payload: JoinGameRequestPayload.decode(sb, tracker),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<JoinGameRequest> {
-    const sb = buf;
-    return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      payload: tracker.next() ? JoinGameRequestPayload.decodeDiff(sb, tracker) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: JoinGameRequest, b: JoinGameRequest): _.DeepPartial<JoinGameRequest> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<JoinGameRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
-      payload: JoinGameRequestPayload.computeDiff(a.payload, b.payload),
-    };
-    return diff.action === _.NO_DIFF && diff.payload === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: JoinGameRequest, diff: _.DeepPartial<JoinGameRequest> | typeof _.NO_DIFF): JoinGameRequest {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
-    obj.payload = diff.payload === _.NO_DIFF ? obj.payload : JoinGameRequestPayload.applyDiff(obj.payload, diff.payload);
-    return obj;
-  },
-};
-
-export const JoinGameRequestPayload = {
-  default(): JoinGameRequestPayload {
-    return {
-      username: undefined,
-      guest: undefined,
-      deck: undefined,
-      spectator: undefined,
-    };
-  },
-  validate(obj: JoinGameRequestPayload) {
-    if (typeof obj !== "object") {
-      return [`Invalid JoinGameRequestPayload object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validateOptional(obj.username, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequestPayload.username");
-    }
-    validationErrors = _.validateOptional(obj.guest, (x) => _.validatePrimitive(typeof x === "boolean", `Invalid boolean: ${x}`));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequestPayload.guest");
-    }
-    validationErrors = _.validateOptional(obj.deck, (x) => DeckState.validate(x));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequestPayload.deck");
-    }
-    validationErrors = _.validateOptional(obj.spectator, (x) => _.validatePrimitive(typeof x === "boolean", `Invalid boolean: ${x}`));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: JoinGameRequestPayload.spectator");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: JoinGameRequestPayload, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     _.writeOptional(tracker, obj.username, (x) => _.writeString(buf, x));
     _.writeOptional(tracker, obj.guest, (x) => _.writeBoolean(tracker, x));
     _.writeOptional(tracker, obj.deck, (x) => DeckState.encode(x, tracker, buf));
     _.writeOptional(tracker, obj.spectator, (x) => _.writeBoolean(tracker, x));
     return buf;
   },
-  encodeDiff(obj: _.DeepPartial<JoinGameRequestPayload>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+  encodeDiff(obj: _.DeepPartial<JoinGameRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.username !== _.NO_DIFF);
     if (obj.username !== _.NO_DIFF) {
       _.writeOptionalDiff<string>(tracker, obj.username!, (x) => _.writeString(buf, x), (x) => _.writeString(buf, x));
@@ -2743,7 +2652,7 @@ export const JoinGameRequestPayload = {
     }
     return buf;
   },
-  decode(buf: _.Reader, tracker: _.Tracker): JoinGameRequestPayload {
+  decode(buf: _.Reader, tracker: _.Tracker): JoinGameRequest {
     const sb = buf;
     return {
       username: _.parseOptional(tracker, () => _.parseString(sb)),
@@ -2752,7 +2661,7 @@ export const JoinGameRequestPayload = {
       spectator: _.parseOptional(tracker, () => _.parseBoolean(tracker)),
     };
   },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<JoinGameRequestPayload> {
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<JoinGameRequest> {
     const sb = buf;
     return {
       username: tracker.next() ? _.parseOptionalDiff<string>(tracker, () => _.parseString(sb), () => _.parseString(sb)) : _.NO_DIFF,
@@ -2761,8 +2670,8 @@ export const JoinGameRequestPayload = {
       spectator: tracker.next() ? _.parseOptionalDiff<boolean>(tracker, () => _.parseBoolean(tracker), () => _.parseBoolean(tracker)) : _.NO_DIFF,
     };
   },
-  computeDiff(a: JoinGameRequestPayload, b: JoinGameRequestPayload): _.DeepPartial<JoinGameRequestPayload> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<JoinGameRequestPayload> =  {
+  computeDiff(a: JoinGameRequest, b: JoinGameRequest): _.DeepPartial<JoinGameRequest> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<JoinGameRequest> =  {
       username: _.diffOptional<string>(a.username, b.username, (x, y) => _.diffPrimitive(x, y)),
       guest: _.diffOptional<boolean>(a.guest, b.guest, (x, y) => _.diffPrimitive(x, y)),
       deck: _.diffOptional<DeckState>(a.deck, b.deck, (x, y) => DeckState.computeDiff(x, y)),
@@ -2770,7 +2679,7 @@ export const JoinGameRequestPayload = {
     };
     return diff.username === _.NO_DIFF && diff.guest === _.NO_DIFF && diff.deck === _.NO_DIFF && diff.spectator === _.NO_DIFF ? _.NO_DIFF : diff;
   },
-  applyDiff(obj: JoinGameRequestPayload, diff: _.DeepPartial<JoinGameRequestPayload> | typeof _.NO_DIFF): JoinGameRequestPayload {
+  applyDiff(obj: JoinGameRequest, diff: _.DeepPartial<JoinGameRequest> | typeof _.NO_DIFF): JoinGameRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
@@ -2785,8 +2694,7 @@ export const JoinGameRequestPayload = {
 export const LeaveGameRequest = {
   default(): LeaveGameRequest {
     return {
-      action: "",
-      payload: LeaveGameRequestPayload.default(),
+      reason: undefined,
     };
   },
   validate(obj: LeaveGameRequest) {
@@ -2795,113 +2703,43 @@ export const LeaveGameRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validateOptional(obj.reason, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`));
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: LeaveGameRequest.action");
-    }
-    validationErrors = LeaveGameRequestPayload.validate(obj.payload);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: LeaveGameRequest.payload");
+      return validationErrors.concat("Invalid key: LeaveGameRequest.reason");
     }
 
     return validationErrors;
   },
   encode(obj: LeaveGameRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
-    LeaveGameRequestPayload.encode(obj.payload, tracker, buf);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<LeaveGameRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
-    }
-    tracker.push(obj.payload !== _.NO_DIFF);
-    if (obj.payload !== _.NO_DIFF) {
-      LeaveGameRequestPayload.encodeDiff(obj.payload, tracker, buf);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader, tracker: _.Tracker): LeaveGameRequest {
-    const sb = buf;
-    return {
-      action: _.parseString(sb),
-      payload: LeaveGameRequestPayload.decode(sb, tracker),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<LeaveGameRequest> {
-    const sb = buf;
-    return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      payload: tracker.next() ? LeaveGameRequestPayload.decodeDiff(sb, tracker) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: LeaveGameRequest, b: LeaveGameRequest): _.DeepPartial<LeaveGameRequest> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<LeaveGameRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
-      payload: LeaveGameRequestPayload.computeDiff(a.payload, b.payload),
-    };
-    return diff.action === _.NO_DIFF && diff.payload === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: LeaveGameRequest, diff: _.DeepPartial<LeaveGameRequest> | typeof _.NO_DIFF): LeaveGameRequest {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
-    obj.payload = diff.payload === _.NO_DIFF ? obj.payload : LeaveGameRequestPayload.applyDiff(obj.payload, diff.payload);
-    return obj;
-  },
-};
-
-export const LeaveGameRequestPayload = {
-  default(): LeaveGameRequestPayload {
-    return {
-      reason: undefined,
-    };
-  },
-  validate(obj: LeaveGameRequestPayload) {
-    if (typeof obj !== "object") {
-      return [`Invalid LeaveGameRequestPayload object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validateOptional(obj.reason, (x) => _.validatePrimitive(typeof x === "string", `Invalid string: ${x}`));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: LeaveGameRequestPayload.reason");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: LeaveGameRequestPayload, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     _.writeOptional(tracker, obj.reason, (x) => _.writeString(buf, x));
     return buf;
   },
-  encodeDiff(obj: _.DeepPartial<LeaveGameRequestPayload>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+  encodeDiff(obj: _.DeepPartial<LeaveGameRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.reason !== _.NO_DIFF);
     if (obj.reason !== _.NO_DIFF) {
       _.writeOptionalDiff<string>(tracker, obj.reason!, (x) => _.writeString(buf, x), (x) => _.writeString(buf, x));
     }
     return buf;
   },
-  decode(buf: _.Reader, tracker: _.Tracker): LeaveGameRequestPayload {
+  decode(buf: _.Reader, tracker: _.Tracker): LeaveGameRequest {
     const sb = buf;
     return {
       reason: _.parseOptional(tracker, () => _.parseString(sb)),
     };
   },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<LeaveGameRequestPayload> {
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<LeaveGameRequest> {
     const sb = buf;
     return {
       reason: tracker.next() ? _.parseOptionalDiff<string>(tracker, () => _.parseString(sb), () => _.parseString(sb)) : _.NO_DIFF,
     };
   },
-  computeDiff(a: LeaveGameRequestPayload, b: LeaveGameRequestPayload): _.DeepPartial<LeaveGameRequestPayload> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<LeaveGameRequestPayload> =  {
+  computeDiff(a: LeaveGameRequest, b: LeaveGameRequest): _.DeepPartial<LeaveGameRequest> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<LeaveGameRequest> =  {
       reason: _.diffOptional<string>(a.reason, b.reason, (x, y) => _.diffPrimitive(x, y)),
     };
     return diff.reason === _.NO_DIFF ? _.NO_DIFF : diff;
   },
-  applyDiff(obj: LeaveGameRequestPayload, diff: _.DeepPartial<LeaveGameRequestPayload> | typeof _.NO_DIFF): LeaveGameRequestPayload {
+  applyDiff(obj: LeaveGameRequest, diff: _.DeepPartial<LeaveGameRequest> | typeof _.NO_DIFF): LeaveGameRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
@@ -2913,8 +2751,7 @@ export const LeaveGameRequestPayload = {
 export const DraftCardRequest = {
   default(): DraftCardRequest {
     return {
-      action: "",
-      payload: DraftCardRequestPayload.default(),
+      slot: 0,
     };
   },
   validate(obj: DraftCardRequest) {
@@ -2923,113 +2760,43 @@ export const DraftCardRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: DraftCardRequest.action");
-    }
-    validationErrors = DraftCardRequestPayload.validate(obj.payload);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: DraftCardRequest.payload");
+      return validationErrors.concat("Invalid key: DraftCardRequest.slot");
     }
 
     return validationErrors;
   },
   encode(obj: DraftCardRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
-    DraftCardRequestPayload.encode(obj.payload, tracker, buf);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<DraftCardRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
-    }
-    tracker.push(obj.payload !== _.NO_DIFF);
-    if (obj.payload !== _.NO_DIFF) {
-      DraftCardRequestPayload.encodeDiff(obj.payload, tracker, buf);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader, tracker: _.Tracker): DraftCardRequest {
-    const sb = buf;
-    return {
-      action: _.parseString(sb),
-      payload: DraftCardRequestPayload.decode(sb, tracker),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<DraftCardRequest> {
-    const sb = buf;
-    return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      payload: tracker.next() ? DraftCardRequestPayload.decodeDiff(sb, tracker) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: DraftCardRequest, b: DraftCardRequest): _.DeepPartial<DraftCardRequest> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<DraftCardRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
-      payload: DraftCardRequestPayload.computeDiff(a.payload, b.payload),
-    };
-    return diff.action === _.NO_DIFF && diff.payload === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: DraftCardRequest, diff: _.DeepPartial<DraftCardRequest> | typeof _.NO_DIFF): DraftCardRequest {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
-    obj.payload = diff.payload === _.NO_DIFF ? obj.payload : DraftCardRequestPayload.applyDiff(obj.payload, diff.payload);
-    return obj;
-  },
-};
-
-export const DraftCardRequestPayload = {
-  default(): DraftCardRequestPayload {
-    return {
-      slot: 0,
-    };
-  },
-  validate(obj: DraftCardRequestPayload) {
-    if (typeof obj !== "object") {
-      return [`Invalid DraftCardRequestPayload object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: DraftCardRequestPayload.slot");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: DraftCardRequestPayload, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     _.writeUInt(buf, obj.slot);
     return buf;
   },
-  encodeDiff(obj: _.DeepPartial<DraftCardRequestPayload>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+  encodeDiff(obj: _.DeepPartial<DraftCardRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.slot !== _.NO_DIFF);
     if (obj.slot !== _.NO_DIFF) {
       _.writeUInt(buf, obj.slot);
     }
     return buf;
   },
-  decode(buf: _.Reader, tracker: _.Tracker): DraftCardRequestPayload {
+  decode(buf: _.Reader, tracker: _.Tracker): DraftCardRequest {
     const sb = buf;
     return {
       slot: _.parseUInt(sb),
     };
   },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<DraftCardRequestPayload> {
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<DraftCardRequest> {
     const sb = buf;
     return {
       slot: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
     };
   },
-  computeDiff(a: DraftCardRequestPayload, b: DraftCardRequestPayload): _.DeepPartial<DraftCardRequestPayload> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<DraftCardRequestPayload> =  {
+  computeDiff(a: DraftCardRequest, b: DraftCardRequest): _.DeepPartial<DraftCardRequest> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<DraftCardRequest> =  {
       slot: _.diffPrimitive(a.slot, b.slot),
     };
     return diff.slot === _.NO_DIFF ? _.NO_DIFF : diff;
   },
-  applyDiff(obj: DraftCardRequestPayload, diff: _.DeepPartial<DraftCardRequestPayload> | typeof _.NO_DIFF): DraftCardRequestPayload {
+  applyDiff(obj: DraftCardRequest, diff: _.DeepPartial<DraftCardRequest> | typeof _.NO_DIFF): DraftCardRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
@@ -3041,8 +2808,9 @@ export const DraftCardRequestPayload = {
 export const PlayCardRequest = {
   default(): PlayCardRequest {
     return {
-      action: "",
-      payload: PlayCardRequestPayload.default(),
+      slot: 0,
+      variant: undefined,
+      position: Point.default(),
     };
   },
   validate(obj: PlayCardRequest) {
@@ -3051,100 +2819,28 @@ export const PlayCardRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayCardRequest.action");
+      return validationErrors.concat("Invalid key: PlayCardRequest.slot");
     }
-    validationErrors = PlayCardRequestPayload.validate(obj.payload);
+    validationErrors = _.validateOptional(obj.variant, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayCardRequest.payload");
+      return validationErrors.concat("Invalid key: PlayCardRequest.variant");
+    }
+    validationErrors = Point.validate(obj.position);
+    if (validationErrors.length > 0) {
+      return validationErrors.concat("Invalid key: PlayCardRequest.position");
     }
 
     return validationErrors;
   },
   encode(obj: PlayCardRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
-    PlayCardRequestPayload.encode(obj.payload, tracker, buf);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<PlayCardRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
-    }
-    tracker.push(obj.payload !== _.NO_DIFF);
-    if (obj.payload !== _.NO_DIFF) {
-      PlayCardRequestPayload.encodeDiff(obj.payload, tracker, buf);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader, tracker: _.Tracker): PlayCardRequest {
-    const sb = buf;
-    return {
-      action: _.parseString(sb),
-      payload: PlayCardRequestPayload.decode(sb, tracker),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<PlayCardRequest> {
-    const sb = buf;
-    return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      payload: tracker.next() ? PlayCardRequestPayload.decodeDiff(sb, tracker) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: PlayCardRequest, b: PlayCardRequest): _.DeepPartial<PlayCardRequest> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<PlayCardRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
-      payload: PlayCardRequestPayload.computeDiff(a.payload, b.payload),
-    };
-    return diff.action === _.NO_DIFF && diff.payload === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: PlayCardRequest, diff: _.DeepPartial<PlayCardRequest> | typeof _.NO_DIFF): PlayCardRequest {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
-    obj.payload = diff.payload === _.NO_DIFF ? obj.payload : PlayCardRequestPayload.applyDiff(obj.payload, diff.payload);
-    return obj;
-  },
-};
-
-export const PlayCardRequestPayload = {
-  default(): PlayCardRequestPayload {
-    return {
-      slot: 0,
-      variant: undefined,
-      position: Point.default(),
-    };
-  },
-  validate(obj: PlayCardRequestPayload) {
-    if (typeof obj !== "object") {
-      return [`Invalid PlayCardRequestPayload object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayCardRequestPayload.slot");
-    }
-    validationErrors = _.validateOptional(obj.variant, (x) => _.validatePrimitive(Number.isInteger(x) && x >= 0, `Invalid uint: ${x}`));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayCardRequestPayload.variant");
-    }
-    validationErrors = Point.validate(obj.position);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: PlayCardRequestPayload.position");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: PlayCardRequestPayload, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     _.writeUInt(buf, obj.slot);
     _.writeOptional(tracker, obj.variant, (x) => _.writeUInt(buf, x));
     Point.encode(obj.position, tracker, buf);
     return buf;
   },
-  encodeDiff(obj: _.DeepPartial<PlayCardRequestPayload>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+  encodeDiff(obj: _.DeepPartial<PlayCardRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.slot !== _.NO_DIFF);
     if (obj.slot !== _.NO_DIFF) {
       _.writeUInt(buf, obj.slot);
@@ -3159,7 +2855,7 @@ export const PlayCardRequestPayload = {
     }
     return buf;
   },
-  decode(buf: _.Reader, tracker: _.Tracker): PlayCardRequestPayload {
+  decode(buf: _.Reader, tracker: _.Tracker): PlayCardRequest {
     const sb = buf;
     return {
       slot: _.parseUInt(sb),
@@ -3167,7 +2863,7 @@ export const PlayCardRequestPayload = {
       position: Point.decode(sb, tracker),
     };
   },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<PlayCardRequestPayload> {
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<PlayCardRequest> {
     const sb = buf;
     return {
       slot: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
@@ -3175,15 +2871,15 @@ export const PlayCardRequestPayload = {
       position: tracker.next() ? Point.decodeDiff(sb, tracker) : _.NO_DIFF,
     };
   },
-  computeDiff(a: PlayCardRequestPayload, b: PlayCardRequestPayload): _.DeepPartial<PlayCardRequestPayload> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<PlayCardRequestPayload> =  {
+  computeDiff(a: PlayCardRequest, b: PlayCardRequest): _.DeepPartial<PlayCardRequest> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<PlayCardRequest> =  {
       slot: _.diffPrimitive(a.slot, b.slot),
       variant: _.diffOptional<number>(a.variant, b.variant, (x, y) => _.diffPrimitive(x, y)),
       position: Point.computeDiff(a.position, b.position),
     };
     return diff.slot === _.NO_DIFF && diff.variant === _.NO_DIFF && diff.position === _.NO_DIFF ? _.NO_DIFF : diff;
   },
-  applyDiff(obj: PlayCardRequestPayload, diff: _.DeepPartial<PlayCardRequestPayload> | typeof _.NO_DIFF): PlayCardRequestPayload {
+  applyDiff(obj: PlayCardRequest, diff: _.DeepPartial<PlayCardRequest> | typeof _.NO_DIFF): PlayCardRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
@@ -3197,8 +2893,8 @@ export const PlayCardRequestPayload = {
 export const UseSkillRequest = {
   default(): UseSkillRequest {
     return {
-      action: "",
-      payload: UseSkillRequestPayload.default(),
+      slot: 0,
+      position: undefined,
     };
   },
   validate(obj: UseSkillRequest) {
@@ -3207,94 +2903,23 @@ export const UseSkillRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: UseSkillRequest.action");
+      return validationErrors.concat("Invalid key: UseSkillRequest.slot");
     }
-    validationErrors = UseSkillRequestPayload.validate(obj.payload);
+    validationErrors = _.validateOptional(obj.position, (x) => Point.validate(x));
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: UseSkillRequest.payload");
+      return validationErrors.concat("Invalid key: UseSkillRequest.position");
     }
 
     return validationErrors;
   },
   encode(obj: UseSkillRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
-    UseSkillRequestPayload.encode(obj.payload, tracker, buf);
-    return buf;
-  },
-  encodeDiff(obj: _.DeepPartial<UseSkillRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
-    }
-    tracker.push(obj.payload !== _.NO_DIFF);
-    if (obj.payload !== _.NO_DIFF) {
-      UseSkillRequestPayload.encodeDiff(obj.payload, tracker, buf);
-    }
-    return buf;
-  },
-  decode(buf: _.Reader, tracker: _.Tracker): UseSkillRequest {
-    const sb = buf;
-    return {
-      action: _.parseString(sb),
-      payload: UseSkillRequestPayload.decode(sb, tracker),
-    };
-  },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<UseSkillRequest> {
-    const sb = buf;
-    return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
-      payload: tracker.next() ? UseSkillRequestPayload.decodeDiff(sb, tracker) : _.NO_DIFF,
-    };
-  },
-  computeDiff(a: UseSkillRequest, b: UseSkillRequest): _.DeepPartial<UseSkillRequest> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<UseSkillRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
-      payload: UseSkillRequestPayload.computeDiff(a.payload, b.payload),
-    };
-    return diff.action === _.NO_DIFF && diff.payload === _.NO_DIFF ? _.NO_DIFF : diff;
-  },
-  applyDiff(obj: UseSkillRequest, diff: _.DeepPartial<UseSkillRequest> | typeof _.NO_DIFF): UseSkillRequest {
-    if (diff === _.NO_DIFF) {
-      return obj;
-    }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
-    obj.payload = diff.payload === _.NO_DIFF ? obj.payload : UseSkillRequestPayload.applyDiff(obj.payload, diff.payload);
-    return obj;
-  },
-};
-
-export const UseSkillRequestPayload = {
-  default(): UseSkillRequestPayload {
-    return {
-      slot: 0,
-      position: undefined,
-    };
-  },
-  validate(obj: UseSkillRequestPayload) {
-    if (typeof obj !== "object") {
-      return [`Invalid UseSkillRequestPayload object: ${obj}`];
-    }
-    let validationErrors: string[] = [];
-
-    validationErrors = _.validatePrimitive(Number.isInteger(obj.slot) && obj.slot >= 0, `Invalid uint: ${obj.slot}`);
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: UseSkillRequestPayload.slot");
-    }
-    validationErrors = _.validateOptional(obj.position, (x) => Point.validate(x));
-    if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: UseSkillRequestPayload.position");
-    }
-
-    return validationErrors;
-  },
-  encode(obj: UseSkillRequestPayload, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     _.writeUInt(buf, obj.slot);
     _.writeOptional(tracker, obj.position, (x) => Point.encode(x, tracker, buf));
     return buf;
   },
-  encodeDiff(obj: _.DeepPartial<UseSkillRequestPayload>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
+  encodeDiff(obj: _.DeepPartial<UseSkillRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     tracker.push(obj.slot !== _.NO_DIFF);
     if (obj.slot !== _.NO_DIFF) {
       _.writeUInt(buf, obj.slot);
@@ -3305,28 +2930,28 @@ export const UseSkillRequestPayload = {
     }
     return buf;
   },
-  decode(buf: _.Reader, tracker: _.Tracker): UseSkillRequestPayload {
+  decode(buf: _.Reader, tracker: _.Tracker): UseSkillRequest {
     const sb = buf;
     return {
       slot: _.parseUInt(sb),
       position: _.parseOptional(tracker, () => Point.decode(sb, tracker)),
     };
   },
-  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<UseSkillRequestPayload> {
+  decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<UseSkillRequest> {
     const sb = buf;
     return {
       slot: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
       position: tracker.next() ? _.parseOptionalDiff<Point>(tracker, () => Point.decode(sb, tracker), () => Point.decodeDiff(sb, tracker)) : _.NO_DIFF,
     };
   },
-  computeDiff(a: UseSkillRequestPayload, b: UseSkillRequestPayload): _.DeepPartial<UseSkillRequestPayload> | typeof _.NO_DIFF {
-    const diff: _.DeepPartial<UseSkillRequestPayload> =  {
+  computeDiff(a: UseSkillRequest, b: UseSkillRequest): _.DeepPartial<UseSkillRequest> | typeof _.NO_DIFF {
+    const diff: _.DeepPartial<UseSkillRequest> =  {
       slot: _.diffPrimitive(a.slot, b.slot),
       position: _.diffOptional<Point>(a.position, b.position, (x, y) => Point.computeDiff(x, y)),
     };
     return diff.slot === _.NO_DIFF && diff.position === _.NO_DIFF ? _.NO_DIFF : diff;
   },
-  applyDiff(obj: UseSkillRequestPayload, diff: _.DeepPartial<UseSkillRequestPayload> | typeof _.NO_DIFF): UseSkillRequestPayload {
+  applyDiff(obj: UseSkillRequest, diff: _.DeepPartial<UseSkillRequest> | typeof _.NO_DIFF): UseSkillRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
@@ -3339,7 +2964,7 @@ export const UseSkillRequestPayload = {
 export const HeartbeatRequest = {
   default(): HeartbeatRequest {
     return {
-      action: "",
+      time: 0,
     };
   },
   validate(obj: HeartbeatRequest) {
@@ -3348,47 +2973,47 @@ export const HeartbeatRequest = {
     }
     let validationErrors: string[] = [];
 
-    validationErrors = _.validatePrimitive(typeof obj.action === "string", `Invalid string: ${obj.action}`);
+    validationErrors = _.validatePrimitive(Number.isInteger(obj.time) && obj.time >= 0, `Invalid uint: ${obj.time}`);
     if (validationErrors.length > 0) {
-      return validationErrors.concat("Invalid key: HeartbeatRequest.action");
+      return validationErrors.concat("Invalid key: HeartbeatRequest.time");
     }
 
     return validationErrors;
   },
   encode(obj: HeartbeatRequest, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    _.writeString(buf, obj.action);
+    _.writeUInt(buf, obj.time);
     return buf;
   },
   encodeDiff(obj: _.DeepPartial<HeartbeatRequest>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
-    tracker.push(obj.action !== _.NO_DIFF);
-    if (obj.action !== _.NO_DIFF) {
-      _.writeString(buf, obj.action);
+    tracker.push(obj.time !== _.NO_DIFF);
+    if (obj.time !== _.NO_DIFF) {
+      _.writeUInt(buf, obj.time);
     }
     return buf;
   },
   decode(buf: _.Reader, tracker: _.Tracker): HeartbeatRequest {
     const sb = buf;
     return {
-      action: _.parseString(sb),
+      time: _.parseUInt(sb),
     };
   },
   decodeDiff(buf: _.Reader, tracker: _.Tracker): _.DeepPartial<HeartbeatRequest> {
     const sb = buf;
     return {
-      action: tracker.next() ? _.parseString(sb) : _.NO_DIFF,
+      time: tracker.next() ? _.parseUInt(sb) : _.NO_DIFF,
     };
   },
   computeDiff(a: HeartbeatRequest, b: HeartbeatRequest): _.DeepPartial<HeartbeatRequest> | typeof _.NO_DIFF {
     const diff: _.DeepPartial<HeartbeatRequest> =  {
-      action: _.diffPrimitive(a.action, b.action),
+      time: _.diffPrimitive(a.time, b.time),
     };
-    return diff.action === _.NO_DIFF ? _.NO_DIFF : diff;
+    return diff.time === _.NO_DIFF ? _.NO_DIFF : diff;
   },
   applyDiff(obj: HeartbeatRequest, diff: _.DeepPartial<HeartbeatRequest> | typeof _.NO_DIFF): HeartbeatRequest {
     if (diff === _.NO_DIFF) {
       return obj;
     }
-    obj.action = diff.action === _.NO_DIFF ? obj.action : diff.action;
+    obj.time = diff.time === _.NO_DIFF ? obj.time : diff.time;
     return obj;
   },
 };
@@ -3450,7 +3075,7 @@ export const RequestMessage = {
       return [`Invalid RequestMessage union: ${obj}`];
     }
   },
-  encode(obj: RequestMessage, buf: _.Writer = new _.Writer()) {
+  encode(obj: RequestMessage, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     if (obj.type === "JoinGameRequest") {
       _.writeUInt8(buf, 0);
       JoinGameRequest.encode(obj.val, tracker, buf);
@@ -3480,49 +3105,49 @@ export const RequestMessage = {
   encodeDiff(obj: _.DeepPartial<RequestMessage>, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     if (obj.type === "JoinGameRequest") {
       _.writeUInt8(buf, 0);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        JoinGameRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     else if (obj.type === "LeaveGameRequest") {
       _.writeUInt8(buf, 1);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        LeaveGameRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     else if (obj.type === "DraftCardRequest") {
       _.writeUInt8(buf, 2);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        DraftCardRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     else if (obj.type === "PlayCardRequest") {
       _.writeUInt8(buf, 3);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        PlayCardRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     else if (obj.type === "UseSkillRequest") {
       _.writeUInt8(buf, 4);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        UseSkillRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     else if (obj.type === "HeartbeatRequest") {
       _.writeUInt8(buf, 5);
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        HeartbeatRequest.encodeDiff(obj.val, tracker, buf);
       }
     }
     return buf;
   },
-  decode(sb: _.Reader): RequestMessage {
+  decode(sb: _.Reader, tracker: _.Tracker): RequestMessage {
     const type = _.parseUInt8(sb);
     if (type === 0) {
       return { type: "JoinGameRequest", val: JoinGameRequest.decode(sb, tracker) };
@@ -3547,22 +3172,22 @@ export const RequestMessage = {
   decodeDiff(sb: _.Reader, tracker: _.Tracker): _.DeepPartial<RequestMessage> {
     const type = _.parseUInt8(sb);
     if (type === 0) {
-      return { type: "JoinGameRequest", val: _.parseBoolean(sb) ? JoinGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "JoinGameRequest", val: _.parseBoolean(tracker) ? JoinGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     else if (type === 1) {
-      return { type: "LeaveGameRequest", val: _.parseBoolean(sb) ? LeaveGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "LeaveGameRequest", val: _.parseBoolean(tracker) ? LeaveGameRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     else if (type === 2) {
-      return { type: "DraftCardRequest", val: _.parseBoolean(sb) ? DraftCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "DraftCardRequest", val: _.parseBoolean(tracker) ? DraftCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     else if (type === 3) {
-      return { type: "PlayCardRequest", val: _.parseBoolean(sb) ? PlayCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "PlayCardRequest", val: _.parseBoolean(tracker) ? PlayCardRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     else if (type === 4) {
-      return { type: "UseSkillRequest", val: _.parseBoolean(sb) ? UseSkillRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "UseSkillRequest", val: _.parseBoolean(tracker) ? UseSkillRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     else if (type === 5) {
-      return { type: "HeartbeatRequest", val: _.parseBoolean(sb) ? HeartbeatRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
+      return { type: "HeartbeatRequest", val: _.parseBoolean(tracker) ? HeartbeatRequest.decodeDiff(sb, tracker) : _.NO_DIFF };
     }
     throw new Error("Invalid union");
   },

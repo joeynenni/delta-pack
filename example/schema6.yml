@@ -171,43 +171,35 @@ GameState:
 
 # Join game request
 JoinGameRequest:
-  action: String
-  payload:
-    username: String?
-    guest: Boolean?
-    deck: DeckState?
-    spectator: Boolean?
+  username: String?
+  guest: Boolean?
+  deck: DeckState?
+  spectator: Boolean?
 
 # Leave game request
 LeaveGameRequest:
   action: String
   payload:
-    reason: String?
+  reason: String?
 
 # Draft card request
 DraftCardRequest:
-  action: String
-  payload:
-    slot: UInt
+  slot: UInt
 
 # Play card request
 PlayCardRequest:
-  action: String
-  payload:
-    slot: UInt
-    variant: UInt?
-    position: Point
+  slot: UInt
+  variant: UInt?
+  position: Point
 
 # Use skill request
 UseSkillRequest:
-  action: String
-  payload:
-    slot: UInt
-    position: Point?
+  slot: UInt
+  position: Point?
 
 # Heartbeat request
 HeartbeatRequest:
-  action: String
+  time: UInt
 
 # Request message
 RequestMessage:

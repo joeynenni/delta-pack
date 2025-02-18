@@ -149,7 +149,7 @@ export const ${name} = {
       return [\`Invalid ${name} union: \${obj}\`];
     }
   },
-  encode(obj: ${name}, buf: _.Writer = new _.Writer()) {
+  encode(obj: ${name}, tracker: _.Tracker, buf: _.Writer = new _.Writer()) {
     ${Object.entries(type.options)
       .map(([childName, reference], i) => {
         return `${i > 0 ? "else " : ""}if (obj.type === "${reference.reference}") {
@@ -165,7 +165,7 @@ export const ${name} = {
       .map(([childName, reference], i) => {
         return `${i > 0 ? "else " : ""}if (obj.type === "${reference.reference}") {
       _.writeUInt8(buf, ${i});
-      _.writeBoolean(buf, obj.val !== _.NO_DIFF);
+      _.writeBoolean(tracker, obj.val !== _.NO_DIFF);
       if (obj.val !== _.NO_DIFF) {
        ${renderEncodeDiff(reference, reference.reference, "obj.val")};
       }
@@ -174,7 +174,7 @@ export const ${name} = {
       .join("\n    ")}
     return buf;
   },
-  decode(sb: _.Reader): ${name} {
+  decode(sb: _.Reader, tracker: _.Tracker): ${name} {
     const type = _.parseUInt8(sb);
     ${Object.entries(type.options)
       .map(([childName, reference], i) => {
@@ -190,7 +190,7 @@ export const ${name} = {
     ${Object.entries(type.options)
       .map(([childName, reference], i) => {
         return `${i > 0 ? "else " : ""}if (type === ${i}) {
-      return { type: "${reference.reference}", val: _.parseBoolean(sb) ? ${renderDecodeDiff(
+      return { type: "${reference.reference}", val: _.parseBoolean(tracker) ? ${renderDecodeDiff(
           reference,
           reference.reference,
           "obj.val",
