@@ -7,6 +7,7 @@ import {
   RecordType,
   StringType,
   UIntType,
+  UnionType,
 } from "../generator";
 
 const Point = ObjectType({
@@ -234,6 +235,15 @@ const UseSkillRequestPayload = ObjectType({
 const HeartbeatRequest = ObjectType({
   action: StringType(),
 });
+
+const RequestMessage = UnionType([
+  "JoinGameRequest",
+  "LeaveGameRequest",
+  "DraftCardRequest",
+  "PlayCardRequest",
+  "UseSkillRequest",
+  "HeartbeatRequest",
+]);
 
 export default {
   Point,
